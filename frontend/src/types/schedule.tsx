@@ -1,3 +1,5 @@
+import {Semester} from "./semester";
+
 export interface ScheduleDurationResponse {
     weekday: string,
     start: number,
@@ -16,4 +18,9 @@ export interface CourseResponse {
 
 export interface ScheduleResponse {
     courses: CourseResponse[]
+}
+
+export interface ScheduleGenerationRequest {
+    semester: Semester,
+    year: number
 }

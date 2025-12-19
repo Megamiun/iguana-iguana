@@ -1,19 +1,15 @@
 [versions]
-flyway = "11.17.0"
-postgresql = "42.7.8"
-testcontainers = "1.21.3"
 spring-boot = "4.0.0"
 spring-dependency-management = "1.1.7"
+sqlite = "3.51.1.0"
+lombok = "9.1.0"
 
 [libraries]
 # Database
-flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
-flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
-
-testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
+hibernate-dialects = { module = "org.hibernate.orm:hibernate-community-dialects" }
 
 # Third-party
-postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-flyway = { module = "org.springframework.boot:spring-boot-starter-flyway" }
@@ -24,3 +20,4 @@ spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
+lombok = { id = "io.freefair.lombok", version.ref = "lombok" }

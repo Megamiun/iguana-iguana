@@ -2,6 +2,7 @@ package br.com.gabryel.maplewood.service;
 
 import br.com.gabryel.maplewood.model.Course;
 import br.com.gabryel.maplewood.model.response.CourseResponse;
+import br.com.gabryel.maplewood.model.response.CourseResponse.PrerequisiteInfo;
 import br.com.gabryel.maplewood.repository.CourseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -30,7 +31,7 @@ public class CourseService {
             course.getGradeLevelMax(),
             course.getSemesterOrder(),
             course.getSpecialization() != null ? course.getSpecialization().getName() : null,
-            course.getPrerequisite() != null ? new CourseResponse.PrerequisiteInfo(
+            course.getPrerequisite() != null ? new PrerequisiteInfo(
                 course.getPrerequisite().getId(),
                 course.getPrerequisite().getCode(),
                 course.getPrerequisite().getName()

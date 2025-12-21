@@ -1,6 +1,6 @@
 import {PropsWithChildren, useState} from "react";
 import {Button, FormControl, InputLabel, MenuItem, Select} from "@mui/material";
-import {Semester} from "../types/semester";
+import {getSemesterDisplay, Semester} from "../types/semester";
 import {generateSchedule} from "../service/apiClient";
 import {ScheduleResponse} from "../types/schedule";
 
@@ -14,7 +14,7 @@ const getRange = (start: number, size: number) =>
     [...Array(size)].map((_, index) => start + index)
 
 export default ({setSchedule}: SemesterSelectionProps) => {
-    const [semester, setSemester] = useState<Semester>(Semester.fall)
+    const [semester, setSemester] = useState<Semester>(Semester.FALL)
     const [year, setYear] = useState(2025)
 
     return <>
@@ -27,7 +27,7 @@ export default ({setSchedule}: SemesterSelectionProps) => {
                 onChange={e => setSemester(e.target.value)}>
                 {
                     Object.values(Semester).map(semester =>
-                        <MenuItem key={semester} value={semester}>{semester}</MenuItem>
+                        <MenuItem key={semester} value={semester}>{getSemesterDisplay(semester)}</MenuItem>
                     )
                 }
             </Select>
@@ -48,7 +48,7 @@ export default ({setSchedule}: SemesterSelectionProps) => {
         </FormControl>
         <Button
             variant="outlined"
-            onClick={() => setSchedule(generateSchedule(semester, year))}
+            onClick={async () => setSchedule(await generateSchedule(semester, year)) }
         >Generate</Button>
     </>
 }

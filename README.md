@@ -47,3 +47,14 @@ The frontend will start at `http://localhost:5173`
     - Grade Level compatibility(Student is at Grade Level or above to the course)
   - For elective courses:
     - Every course will have one section at least
+- Enums for CourseHistoryStatus and CourseType created, as they seem exhaustive
+  - The same has not been done for Student.status, as it has contains 'active' state on the database
+- Room types were not available in the original dataset. I have decided to classify then as follow:
+  - Classroom - Mathematics, English, Social Studies, Foreign Language
+  - Science Lab - Science
+  - Art Studio - Arts
+  - Gym - Physical Education
+  - Computer Lab - Computer Science
+  - Music Room - Music
+  - Library - None
+  - Auditorium - None

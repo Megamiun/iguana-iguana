@@ -1,6 +1,7 @@
 package br.com.gabryel.maplewood.model.response;
 
-import br.com.gabryel.maplewood.model.Semester;
+import br.com.gabryel.maplewood.model.SemesterType;
+import br.com.gabryel.maplewood.model.db.enums.CourseType;
 
 import java.math.BigDecimal;
 
@@ -11,16 +12,14 @@ public record CourseResponse(
     String description,
     BigDecimal credits,
     Integer hoursPerWeek,
-    String courseType,
+    CourseType courseType,
     Integer gradeLevelMin,
     Integer gradeLevelMax,
-    Semester semester,
+    SemesterType semesterType,
     String specializationName,
     PrerequisiteInfo prerequisite
 ) {
-    public record PrerequisiteInfo(
-        Integer id,
-        String code,
-        String name
-    ) {}
+    public record PrerequisiteInfo(Integer id, String code, String name) {
+
+    }
 }

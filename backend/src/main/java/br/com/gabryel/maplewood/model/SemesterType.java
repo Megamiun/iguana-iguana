@@ -1,6 +1,6 @@
 package br.com.gabryel.maplewood.model;
 
-public enum Semester {
+public enum SemesterType {
     FALL,
     SPRING
 }

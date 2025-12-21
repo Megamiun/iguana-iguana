@@ -1,11 +1,11 @@
 package br.com.gabryel.maplewood.model.response;
 
-import br.com.gabryel.maplewood.model.Semester;
+import br.com.gabryel.maplewood.model.SemesterType;
 
 public record SemesterResponse(
     Integer id,
     String name,
     Integer year,
-    Semester semester
+    SemesterType semesterType
 ) {
 }

@@ -1,7 +1,6 @@
 package br.com.gabryel.maplewood.service;
 
-import br.com.gabryel.maplewood.model.Course;
-import br.com.gabryel.maplewood.model.Semester;
+import br.com.gabryel.maplewood.model.db.Course;
 import br.com.gabryel.maplewood.model.response.CourseResponse;
 import br.com.gabryel.maplewood.model.response.CourseResponse.PrerequisiteInfo;
 import br.com.gabryel.maplewood.repository.CourseRepository;
@@ -10,8 +9,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import static br.com.gabryel.maplewood.model.Semester.FALL;
-import static br.com.gabryel.maplewood.model.Semester.SPRING;
+import static br.com.gabryel.maplewood.model.SemesterType.FALL;
+import static br.com.gabryel.maplewood.model.SemesterType.SPRING;
 
 @Service
 @RequiredArgsConstructor

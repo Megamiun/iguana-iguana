@@ -1,4 +1,4 @@
-package br.com.gabryel.maplewood.model;
+package br.com.gabryel.maplewood.model.db;
 
 import jakarta.persistence.*;
 import lombok.Getter;

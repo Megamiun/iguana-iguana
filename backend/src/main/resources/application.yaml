@@ -10,3 +10,16 @@ spring:
     database-platform: org.hibernate.community.dialect.SQLiteDialect
     hibernate:
       ddl-auto: none
+
+# For simplicity sake, only discrete intervals of hours will be used.
+maplewood:
+  scheduling:
+    time:
+      available:
+        - start: 9
+          end: 12
+        - start: 13
+          end: 17
+      max-consecutive-class-hours: 2
+    teachers:
+      max-daily-hours: 4

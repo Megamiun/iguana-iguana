@@ -1,5 +1,16 @@
 export enum Semester { FALL = 'FALL', SPRING = 'SPRING' }
 
-export const getSemesterDisplay = (semester: Semester): string => {
-    return semester.charAt(0) + semester.slice(1).toLowerCase()
+export interface SemesterResponse {
+    id: number;
+    name: string;
+    year: number;
+    semester: Semester;
+}
+
+export interface PageResponse<T> {
+    content: T[];
+    page: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
 }

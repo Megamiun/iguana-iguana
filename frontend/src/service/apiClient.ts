@@ -1,7 +1,17 @@
-import {Semester} from "../types/semester";
+import {Semester, SemesterResponse, PageResponse} from "../types/semester";
 import {ScheduleGenerationRequest, ScheduleResponse} from "../types/schedule";
 
 const API_BASE_URL = import.meta.env.VITE_MAPLEWOOD_BASE_URL || "/api";
+
+export const getSemesters = async (): Promise<PageResponse<SemesterResponse>> => {
+    const response = await fetch(`${API_BASE_URL}/schedule/semesters`);
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch semesters: ${response.statusText}`);
+    }
+
+    return await response.json();
+};
 
 export const generateSchedule = async (semester: Semester, year: number): Promise<ScheduleResponse> => {
     const response = await fetch(`${API_BASE_URL}/schedule`, {

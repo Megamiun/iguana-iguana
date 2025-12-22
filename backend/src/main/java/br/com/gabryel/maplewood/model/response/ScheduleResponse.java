@@ -1,5 +1,6 @@
 package br.com.gabryel.maplewood.model.response;
 
+import br.com.gabryel.maplewood.service.scheduler.ScheduleCalculator.Weekday;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -17,20 +18,20 @@ public class ScheduleResponse {
     @AllArgsConstructor
     public static class CourseScheduleResponse {
         private String name;
-        private String section;
+        private int section;
         private String teacher;
         private String classroom;
         private List<ScheduleDurationResponse> schedule;
-        private Integer availableSpots;
-        private Integer filledSpots;
+        private int availableSpots;
+        private int filledSpots;
     }
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ScheduleDurationResponse {
-        private String weekday;
-        private Integer start;
-        private Integer end;
+        private Weekday weekday;
+        private int start;
+        private int end;
     }
 }

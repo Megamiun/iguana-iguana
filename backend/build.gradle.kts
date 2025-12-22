@@ -10,6 +10,10 @@ repositories {
     mavenCentral()
 }
 
+java {
+    version = 21
+}
+
 dependencies {
     implementation(libs.spring.boot.starter)
     implementation(libs.spring.boot.starter.web)

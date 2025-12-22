@@ -4,7 +4,9 @@ import br.com.gabryel.maplewood.model.SemesterType;
 import br.com.gabryel.maplewood.model.db.Course;
 import br.com.gabryel.maplewood.model.db.enums.CourseType;
 import br.com.gabryel.maplewood.repository.CourseRepository;
+import lombok.Builder;
 import lombok.RequiredArgsConstructor;
+import lombok.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -20,8 +22,10 @@ import static java.util.stream.Collectors.toMap;
 public class CourseDataService {
     private final CourseRepository courseRepository;
 
+    @Builder
     public record CourseData(
         Integer id,
+        String name,
         SemesterType semesterType,
         CourseType courseType,
         CourseData prerequisite,
@@ -48,16 +52,18 @@ public class CourseDataService {
         if (course == null)
             return null;
 
-        return cache.computeIfAbsent(course.getId(), id -> new CourseData(
-            course.getId(),
-            getSemesterType(course.getSemesterOrder()),
-            course.getCourseType(),
-            loadCourseData(course.getPrerequisite(), cache),
-            course.getGradeLevelMin(),
-            course.getGradeLevelMax(),
-            course.getSpecialization().getId(),
-            course.getHoursPerWeek()
-        ));
+        return cache.computeIfAbsent(course.getId(), id -> CourseData.builder()
+            .id(course.getId())
+            .name(course.getName())
+            .semesterType(getSemesterType(course.getSemesterOrder()))
+            .courseType(course.getCourseType())
+            .prerequisite(loadCourseData(course.getPrerequisite(), cache))
+            .gradeLevelMin(course.getGradeLevelMin())
+            .gradeLevelMax(course.getGradeLevelMax())
+            .specializationId(course.getSpecialization().getId())
+            .hoursPerWeek(course.getHoursPerWeek())
+            .build()
+        );
     }
 
     private static SemesterType getSemesterType(int semester) {

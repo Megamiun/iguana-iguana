@@ -24,7 +24,7 @@ public class ClassroomDataService {
     private final SpecializationRepository specializationRepository;
 
     public record RoomTypeData(List<Integer> specializationIds) {}
-    public record ClassroomData(int id, int capacity, RoomTypeData roomType) {}
+    public record ClassroomData(int id, String name, int capacity, RoomTypeData roomType) {}
 
     public Map<Integer, ClassroomData> getClassrooms() {
         var specializationsByRoomType = specializationRepository.findAll().stream()
@@ -35,6 +35,7 @@ public class ClassroomDataService {
             Classroom::getId,
             classroom -> new ClassroomData(
                 classroom.getId(),
+                classroom.getName(),
                 classroom.getCapacity(),
                 specializationsByRoomType.get(classroom.getRoomType().getId())
             )

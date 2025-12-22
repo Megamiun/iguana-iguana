@@ -14,13 +14,15 @@ import static java.util.stream.Collectors.toMap;
 public class TeacherDataService {
     private final TeacherRepository teacherRepository;
 
-    public record TeacherData(int id, int specializationId, int maxDailyHours) {}
+    public record TeacherData(int id, String name, int specializationId, int maxDailyHours) {
+    }
 
     public Map<Integer, TeacherData> getTeachers() {
         return teacherRepository.findAll().stream().collect(toMap(
             Teacher::getId,
             teacher -> new TeacherData(
                 teacher.getId(),
+                teacher.getFirstName() + " " + teacher.getLastName(),
                 teacher.getSpecialization().getId(),
                 teacher.getMaxDailyHours()
             )

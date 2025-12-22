@@ -6,6 +6,6 @@ public record SemesterResponse(
     Integer id,
     String name,
     Integer year,
-    SemesterType semesterType
+    SemesterType semester
 ) {
 }

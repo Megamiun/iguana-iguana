@@ -10,11 +10,11 @@ import static java.util.stream.IntStream.range;
 @Data
 @ConfigurationProperties(prefix = "maplewood.scheduling.time")
 public class TimeSchedulingConfig {
-    private List<TimeSlot> available;
+    private List<TimeRange> available;
     private int maxConsecutiveClassHours;
 
     @Data
-    public static class TimeSlot {
+    public static class TimeRange {
         private int start;
         private int end;
 

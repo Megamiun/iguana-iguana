@@ -1,6 +1,6 @@
 package br.com.gabryel.maplewood.model.response;
 
-import br.com.gabryel.maplewood.service.scheduler.ScheduleCalculator.Weekday;
+import br.com.gabryel.maplewood.model.Weekday;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

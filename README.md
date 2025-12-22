@@ -7,6 +7,16 @@
 
 ## Running the Application
 
+### Dockerized
+
+From the root directory, run:
+
+```bash
+docker compose up
+```
+
+This will allow you to access the FE from `http://localhost:5173`
+
 ### Backend (Spring Boot)
 
 From the `backend/` directory:
@@ -64,6 +74,7 @@ The frontend will start at `http://localhost:5173`
     - ELECTIVE courses: ~352 sections -> 1383 hours/week
   - Teachers have 1000 hours free/week(4 daily hours x 5 weekdays x 50 teachers)
   - Thus, with only 33% of the full capacity for CORE courses, a greedy algorithm was chosen for simplicity
-    - Prioritize CORE courses first, then electives will be put in a best-effort manner 
-    - A backtracking algorithm with rollbacks would be overkill for this scenario
+    - Prioritize CORE courses first
+    - Electives will be created in a best-effort manner using round-robin
+    - A backtracking algorithm with rollbacks maybe would be overkill for this scenario
     - For scenarios with less slack, a backtracking algorithm could also become too time-consuming due to combinatorial explosion

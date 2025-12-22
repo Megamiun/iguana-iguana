@@ -11,7 +11,7 @@ spring:
     hibernate:
       ddl-auto: none
 
-# For simplicity sake, only discrete intervals of hours will be used.
+# For simplicity’s sake, only discrete intervals of hours will be used.
 maplewood:
   scheduling:
     time:
@@ -21,5 +21,3 @@ maplewood:
         - start: 13
           end: 17
       max-consecutive-class-hours: 2
-    teachers:
-      max-daily-hours: 4

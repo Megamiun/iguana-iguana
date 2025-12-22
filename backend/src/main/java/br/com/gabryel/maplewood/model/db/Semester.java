@@ -16,8 +16,8 @@ public class Semester {
     private Integer id;
 
     private String name;
-    private Integer year;
-    private Integer orderInYear;
+    private int year;
+    private int orderInYear;
 
     private Boolean isActive;
 }

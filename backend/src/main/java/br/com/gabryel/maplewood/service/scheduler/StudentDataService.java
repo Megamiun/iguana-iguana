@@ -2,7 +2,6 @@ package br.com.gabryel.maplewood.service.scheduler;
 
 import br.com.gabryel.maplewood.model.db.Student;
 import br.com.gabryel.maplewood.model.db.StudentCourseHistory;
-import br.com.gabryel.maplewood.model.db.enums.CourseHistoryStatus;
 import br.com.gabryel.maplewood.repository.StudentCourseHistoryRepository;
 import br.com.gabryel.maplewood.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +12,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
 
+import static br.com.gabryel.maplewood.model.db.enums.CourseHistoryStatus.PASSED;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toMap;
 
@@ -22,8 +22,7 @@ public class StudentDataService {
     private final StudentRepository studentRepository;
     private final StudentCourseHistoryRepository studentCourseHistoryRepository;
 
-    public record StudentData(int id, int gradeLevel, List<CourseStatus> courses) {}
-    public record CourseStatus(int studentId, int courseId, CourseHistoryStatus passed) {}
+    public record StudentData(int id, int gradeLevel, List<Integer> passedCourses) {}
 
     public Map<Integer, StudentData> getStudents() {
         var activeStudents = studentRepository.findByStatus("active");
@@ -41,7 +40,8 @@ public class StudentDataService {
         var studentId = courseStatus.getKey();
         var student = studentsById.get(studentId);
         var courseHistory = courseStatus.getValue().stream()
-            .map(history -> new CourseStatus(history.getCourse().getId(), history.getStudent().getId(), history.getStatus()))
+            .filter(courseHistoryStatus -> courseHistoryStatus.getStatus() == PASSED)
+            .map(history -> history.getCourse().getId())
             .toList();
 
         return new StudentData(studentId, student.getGradeLevel(), courseHistory);

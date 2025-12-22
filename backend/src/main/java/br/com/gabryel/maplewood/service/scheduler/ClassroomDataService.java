@@ -42,7 +42,9 @@ public class ClassroomDataService {
     }
 
     private static Collector<Specialization, ?, Map<Integer, RoomTypeData>> groupByRoomType() {
-        var collectToRoomTypeData = mapping(Specialization::getId, collectingAndThen(toList(), RoomTypeData::new));
-        return groupingBy(specialization -> specialization.getRoomType().getId(), collectToRoomTypeData);
+        return groupingBy(
+            specialization -> specialization.getRoomType().getId(),
+            mapping(Specialization::getId, collectingAndThen(toList(), RoomTypeData::new))
+        );
     }
 }

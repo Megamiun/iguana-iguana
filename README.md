@@ -58,3 +58,12 @@ The frontend will start at `http://localhost:5173`
   - Music Room - Music
   - Library - None
   - Auditorium - None
+- Over calculations:
+  - Students are eligible for:
+    - CORE courses: ~61 sections -> 322 hours/week
+    - ELECTIVE courses: ~352 sections -> 1383 hours/week
+  - Teachers have 1000 hours free/week(4 daily hours x 5 weekdays x 50 teachers)
+  - Thus, with only 33% of the full capacity for CORE courses, a greedy algorithm was chosen for simplicity
+    - Prioritize CORE courses first, then electives will be put in a best-effort manner 
+    - A backtracking algorithm with rollbacks would be overkill for this scenario
+    - For scenarios with less slack, a backtracking algorithm could also become too time-consuming due to combinatorial explosion

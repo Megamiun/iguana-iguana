@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -21,6 +22,7 @@ import java.util.stream.Collector;
 import java.util.stream.Stream;
 
 import static br.com.gabryel.maplewood.model.db.enums.CourseType.CORE;
+import static br.com.gabryel.maplewood.model.db.enums.CourseType.ELECTIVE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Comparator.comparing;
@@ -37,7 +39,8 @@ import static java.util.stream.Collectors.toSet;
 @Slf4j
 public class ScheduleCalculator {
 
-    private record CourseDemand(CourseData course, List<StudentData> students) { }
+    private record CourseDemand(CourseData course, List<StudentData> students) {
+    }
 
     private final Map<Integer, CourseData> courses;
     private final TimeSchedulingConfig timeConfig;
@@ -51,13 +54,10 @@ public class ScheduleCalculator {
     private final Map<Integer, List<TeacherData>> specializationToTeachers;
 
     private final Map<Integer, Map<Weekday, Integer>> teacherRemainingDailyHours;
-
     private final Map<Integer, Integer> classroomRemainingWeeklyHours;
-
     private final Map<Integer, Integer> studentRemainingWeeklyHours;
 
     private final List<CourseDemand> courseDemands;
-
     private final List<TimeSlot> availableTimeSlots;
 
     public ScheduleCalculator(
@@ -78,7 +78,7 @@ public class ScheduleCalculator {
             .collect(groupingToMultiMap(classroom ->
                 classroom.roomType().specializationIds().stream().map(specialization -> entry(specialization, classroom))
             ));
-        
+
         var timeSlots = timeConfig.getSlots();
         this.availableTimeSlots = Arrays.stream(Weekday.values()).flatMap(weekDay ->
             timeSlots.stream().map(slot -> new TimeSlot(weekDay, slot))
@@ -97,7 +97,9 @@ public class ScheduleCalculator {
     }
 
     public List<CourseSection> generateSchedule() {
-        return generateCoreSchedule(0);
+        var coreSections = generateCoreSchedule(0);
+        var electiveSections = generateElectiveSchedule(1, getElectiveCourses());
+        return Stream.concat(coreSections.stream(), electiveSections.stream()).toList();
     }
 
     private List<CourseSection> generateCoreSchedule(int courseDemandIndex) {
@@ -111,17 +113,7 @@ public class ScheduleCalculator {
             .sorted(comparing(this::getRemainingStudyHours).reversed())
             .toList();
 
-        var classrooms = specializationToClassrooms.get(course.specializationId()).stream()
-            .filter(data -> hasEnoughWorkHours(data, course))
-            .sorted(comparing(this::getRemainingClassHours).reversed())
-            .toList();
-
-        var teachers = specializationToTeachers.get(course.specializationId()).stream()
-            .filter(data -> hasEnoughWorkHours(data, course))
-            .sorted(comparing(this::getRemainingTeacherHours).reversed())
-            .toList();
-
-        var sections = scheduleSections(course, teachers, classrooms, students, 1);
+        var sections = scheduleSections(course, extractTeachers(course), extractClassrooms(course), students, 1);
 
         return Stream.concat(
             sections.stream(),
@@ -129,18 +121,64 @@ public class ScheduleCalculator {
         ).toList();
     }
 
+    private List<CourseSection> generateElectiveSchedule(int sectionNum, List<CourseData> electiveCourses) {
+        var sections = electiveCourses.stream().map(course -> {
+            var section = scheduleEmptySection(course, extractTeachers(course), extractClassrooms(course), sectionNum);
+
+            if (section != null)
+                updateSchedules(section);
+
+            return section;
+        }).filter(Objects::nonNull).toList();
+
+        if (sections.isEmpty())
+            return List.of();
+
+        return Stream.concat(
+            sections.stream(),
+            generateElectiveSchedule(sectionNum + 1, electiveCourses).stream()
+        ).toList();
+    }
+
+    private CourseSection scheduleEmptySection(CourseData course, List<TeacherData> teachers, List<ClassroomData> classrooms, int sectionNum) {
+        var teacherClassrooms = teachers.stream().flatMap(teacher ->
+            classrooms.stream().map(classroom -> entry(teacher, classroom))
+        ).toList();
+
+        return teacherClassrooms.stream()
+            .flatMap(entry -> scheduleEmptySection(course, sectionNum, entry.getKey(), entry.getValue()))
+            .findFirst()
+            .orElse(null);
+    }
+
+    private Stream<CourseSection> scheduleEmptySection(CourseData course, int sectionNum, TeacherData teacher, ClassroomData classroom) {
+        var teacherSchedule = teacherSchedules.computeIfAbsent(teacher.id(), key -> new HashMap<>());
+        var classroomSchedule = classroomSchedules.computeIfAbsent(classroom.id(), key -> new HashMap<>());
+        var teacherWeekdayRemainingHours = teacherRemainingDailyHours.get(teacher.id());
+
+        var matchingSlots = availableTimeSlots.stream()
+            .filter(slot -> !teacherSchedule.containsKey(slot))
+            .filter(slot -> !classroomSchedule.containsKey(slot))
+            .toList();
+
+        return getKCombinations(matchingSlots, course.hoursPerWeek(), matchingSlots.size() - 1, 0, null)
+            .map(Stream::toList)
+            .filter(slots -> teacherCanTeachAt(slots, teacherWeekdayRemainingHours))
+            .map(slots -> new CourseSection(course, teacher, classroom, slots, List.of(), sectionNum));
+    }
+
     private List<CourseSection> scheduleSections(
         CourseData course,
-        List<TeacherData> availableTeachers,
-        List<ClassroomData> availableClassrooms,
+        List<TeacherData> teachers,
+        List<ClassroomData> classrooms,
         List<StudentData> students,
         int sectionNum
     ) {
         if (students.isEmpty())
             return List.of();
 
-        var teacherClassrooms = availableTeachers.stream().flatMap(teacher ->
-            availableClassrooms.stream().map(classroom -> entry(teacher, classroom))
+        var teacherClassrooms = teachers.stream().flatMap(teacher ->
+            classrooms.stream().map(classroom -> entry(teacher, classroom))
         ).toList();
 
         var section = teacherClassrooms.stream()
@@ -149,12 +187,14 @@ public class ScheduleCalculator {
 
         updateSchedules(section);
 
-        var newAvailableClassrooms = availableClassrooms.stream()
+        var newAvailableClassrooms = classrooms.stream()
             .filter(classroom -> classroom.id() != section.classroom().id() || hasEnoughWorkHours(classroom, course))
+            .sorted(comparing(this::getRemainingClassHours).reversed())
             .toList();
 
-        var newAvailableTeachers = availableTeachers.stream()
+        var newAvailableTeachers = teachers.stream()
             .filter(teacher -> teacher.id() != section.teacher().id() || hasEnoughWorkHours(teacher, course))
+            .sorted(comparing(this::getRemainingTeacherHours).reversed())
             .toList();
 
         var sectionStudentSet = new HashSet<>(section.students());
@@ -283,7 +323,7 @@ public class ScheduleCalculator {
             return Stream.of(Stream.empty());
 
         var timeSlot = matchingSlots.get(index);
-        var currentConsecutiveCounter = areConsecutive(lastSelected, timeSlot) ? consecutiveCounter + 1 : 0;
+        var currentConsecutiveCounter = areConsecutive(timeSlot, lastSelected) ? consecutiveCounter + 1 : 0;
 
         if (currentConsecutiveCounter > timeConfig.getMaxConsecutiveClassHours())
             return getKCombinations(matchingSlots, size, index - 1, 0, lastSelected);
@@ -295,18 +335,18 @@ public class ScheduleCalculator {
         return concatLazy(
             // Keeps current item
             () -> getKCombinations(matchingSlots, size - 1, index - 1, currentConsecutiveCounter, timeSlot)
-                .map(rest -> Stream.concat(rest, Stream.of(timeSlot))),
+                .map(rest -> Stream.concat(Stream.of(timeSlot), rest)),
             // Skip current item
-            () -> getKCombinations(matchingSlots, size, index - 1, currentConsecutiveCounter, lastSelected));
+            () -> getKCombinations(matchingSlots, size, index - 1, 0, lastSelected));
     }
 
     @SafeVarargs
-    private <T> Stream<T> concatLazy(Supplier<Stream<T>> ... streams) {
+    private <T> Stream<T> concatLazy(Supplier<Stream<T>>... streams) {
         return Stream.of(streams).flatMap(Supplier::get);
     }
 
     private static boolean areConsecutive(TimeSlot first, TimeSlot second) {
-        return first != null && second.weekday() == first.weekday() && first.slot() + 1 == second.slot();
+        return first != null && second != null && second.weekday() == first.weekday() && first.slot() + 1 == second.slot();
     }
 
     private boolean hasEnoughWorkHours(TeacherData data, CourseData course) {
@@ -331,6 +371,12 @@ public class ScheduleCalculator {
 
     private <INPUT, KEY, VALUE> Collector<INPUT, ?, Map<KEY, List<VALUE>>> groupingToMultiMap(Function<INPUT, Stream<Entry<KEY, VALUE>>> mapper) {
         return flatMapping(mapper, groupingBy(Entry::getKey, mapping(Entry::getValue, toList())));
+    }
+
+    private List<CourseData> getElectiveCourses() {
+        return courses.values().stream()
+            .filter(course -> course.courseType() == ELECTIVE)
+            .toList();
     }
 
     private List<CourseDemand> getCoreCourseDemands(Map<Integer, StudentData> students) {
@@ -358,5 +404,19 @@ public class ScheduleCalculator {
 
     private static Map<Weekday, Integer> generateHoursMap(TeacherData teacher) {
         return Arrays.stream(Weekday.values()).collect(toMap(identity(), day -> teacher.maxDailyHours()));
+    }
+
+    private List<TeacherData> extractTeachers(CourseData course) {
+        return specializationToTeachers.get(course.specializationId()).stream()
+            .filter(data -> hasEnoughWorkHours(data, course))
+            .sorted(comparing(this::getRemainingTeacherHours).reversed())
+            .toList();
+    }
+
+    private List<ClassroomData> extractClassrooms(CourseData course) {
+        return specializationToClassrooms.get(course.specializationId()).stream()
+            .filter(data -> hasEnoughWorkHours(data, course))
+            .sorted(comparing(this::getRemainingClassHours).reversed())
+            .toList();
     }
 }

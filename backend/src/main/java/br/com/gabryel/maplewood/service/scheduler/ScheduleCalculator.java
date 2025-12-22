@@ -228,7 +228,7 @@ public class ScheduleCalculator {
                 .filter(slot -> studentSchedules.computeIfAbsent(student.id(), key -> new HashMap<>()).computeIfAbsent(slot, key -> null) == null)
                 .collect(toSet())));
 
-        var minimumAccepted = max(1, min(classroom.capacity() - 2, remainingStudents.size() - 2));
+        var minimumAccepted = max(1, min(classroom.capacity() - 1, remainingStudents.size() - 1));
 
         var matchingSlots = availableTimeSlots.stream()
             .filter(timeSlot -> !teacherSchedule.containsKey(timeSlot))
@@ -255,7 +255,8 @@ public class ScheduleCalculator {
             })
             .filter(Optional::isPresent)
             .map(Optional::get)
-            .findFirst();
+            .limit(10)
+            .max(comparing(section -> section.students.size()));
     }
 
     private Stream<Stream<TimeSlot>> getKCombinations(List<TimeSlot> matchingSlots, int k, int index, int consecutiveCounter, TimeSlot lastSelected) {

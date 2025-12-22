@@ -3,11 +3,14 @@ package br.com.gabryel.maplewood.service.scheduler;
 import br.com.gabryel.maplewood.config.TimeSchedulingConfig;
 import br.com.gabryel.maplewood.model.SemesterType;
 import br.com.gabryel.maplewood.model.response.ScheduleResponse;
+import br.com.gabryel.maplewood.model.response.ScheduleResponse.CourseScheduleResponse;
 import br.com.gabryel.maplewood.repository.SemesterRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import static br.com.gabryel.maplewood.model.SemesterType.FALL;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toList;
 
 @Service
 @RequiredArgsConstructor
@@ -29,8 +32,10 @@ public class Scheduler {
         var teachers = teacherDataService.getTeachers();
         var classrooms = classroomDataService.getClassrooms();
 
-        return new ScheduleCalculator(timeSchedulingConfig, courses, students, teachers, classrooms)
-            .generateSchedule();
+        var calculator = new ScheduleCalculator(timeSchedulingConfig, courses, students, teachers, classrooms);
+        return calculator.generateSchedule().stream()
+            .map(this::toResponse)
+            .collect(collectingAndThen(toList(), ScheduleResponse::new));
     }
 
     private static int getOrderInYear(SemesterType semesterType) {
@@ -38,5 +43,18 @@ public class Scheduler {
             return 1;
         }
         return 2;
+    }
+
+    private CourseScheduleResponse toResponse(CourseSection section) {
+        return new CourseScheduleResponse(
+            section.course().name(),
+            section.section(),
+            section.teacher().name(),
+            section.classroom().name(),
+            // TODO Merge consecutive slots
+            section.timeSlots().stream().map(slot -> new ScheduleResponse.ScheduleDurationResponse(slot.weekday(), slot.slot(), slot.slot() + 1)).toList(),
+            section.classroom().capacity() - section.students().size(),
+            section.students().size()
+        );
     }
 }

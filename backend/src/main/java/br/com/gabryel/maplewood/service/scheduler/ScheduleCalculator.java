@@ -2,8 +2,6 @@ package br.com.gabryel.maplewood.service.scheduler;
 
 import br.com.gabryel.maplewood.config.TimeSchedulingConfig;
 import br.com.gabryel.maplewood.model.Weekday;
-import br.com.gabryel.maplewood.model.response.ScheduleResponse;
-import br.com.gabryel.maplewood.model.response.ScheduleResponse.CourseScheduleResponse;
 import br.com.gabryel.maplewood.service.scheduler.ClassroomDataService.ClassroomData;
 import br.com.gabryel.maplewood.service.scheduler.CourseDataService.CourseData;
 import br.com.gabryel.maplewood.service.scheduler.StudentDataService.StudentData;
@@ -11,13 +9,12 @@ import br.com.gabryel.maplewood.service.scheduler.TeacherDataService.TeacherData
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
@@ -29,6 +26,7 @@ import static java.lang.Math.min;
 import static java.util.Comparator.comparing;
 import static java.util.Map.entry;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.counting;
 import static java.util.stream.Collectors.flatMapping;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
@@ -38,10 +36,6 @@ import static java.util.stream.Collectors.toSet;
 
 @Slf4j
 public class ScheduleCalculator {
-
-    private record TimeSlot(Weekday weekday, int slot) { }
-
-    private record CourseSection(CourseData course, TeacherData teacher, ClassroomData classroom, List<TimeSlot> timeSlots, List<StudentData> students, int section) { }
 
     private record CourseDemand(CourseData course, List<StudentData> students) { }
 
@@ -93,7 +87,7 @@ public class ScheduleCalculator {
         this.courseDemands = getCoreCourseDemands(students);
 
         this.teacherRemainingDailyHours = teachers.values().stream()
-            .collect(toMap(TeacherData::id, ScheduleCalculator::getHoursMap));
+            .collect(toMap(TeacherData::id, ScheduleCalculator::generateHoursMap));
 
         this.classroomRemainingWeeklyHours = classrooms.keySet().stream()
             .collect(toMap(identity(), key -> availableTimeSlots.size()));
@@ -102,176 +96,208 @@ public class ScheduleCalculator {
             .collect(toMap(identity(), key -> availableTimeSlots.size()));
     }
 
-    public ScheduleResponse generateSchedule() {
-        var schedule = generateSchedule(0).stream().map(section -> new CourseScheduleResponse(
-            section.course.name(),
-            section.section,
-            section.teacher.name(),
-            section.classroom.name(),
-            // TODO Merge consecutive slots
-            section.timeSlots().stream().map(slot -> new ScheduleResponse.ScheduleDurationResponse(slot.weekday, slot.slot, slot.slot + 1)).toList(),
-            section.classroom.capacity() - section.students.size(),
-            section.students.size()
-        )).toList();
-
-        return new ScheduleResponse(schedule);
+    public List<CourseSection> generateSchedule() {
+        return generateCoreSchedule(0);
     }
 
-    private List<CourseSection> generateSchedule(int currentIndex) {
-        if (currentIndex >= courseDemands.size())
+    private List<CourseSection> generateCoreSchedule(int courseDemandIndex) {
+        if (courseDemandIndex >= courseDemands.size())
             return List.of();
 
-        var courseDemand = courseDemands.get(currentIndex);
+        var courseDemand = courseDemands.get(courseDemandIndex);
         var course = courseDemand.course();
 
-        var availableClassrooms = specializationToClassrooms.get(course.specializationId()).stream()
-            .filter(data -> hasEnoughWorkHours(data, course))
-            .toList();
-
-        var availableTeachers = specializationToTeachers.get(course.specializationId()).stream()
-            .filter(data -> hasEnoughWorkHours(data, course))
-            .toList();
-
-        var sections = scheduleSections(course, availableTeachers, availableClassrooms, courseDemand.students(), 1);
-
-        return Stream.concat(sections.stream(), generateSchedule(currentIndex + 1).stream()).toList();
-    }
-
-    private List<CourseSection> scheduleSections(CourseData course, List<TeacherData> availableTeachers, List<ClassroomData> availableClassrooms, List<StudentData> remainingStudents, int sectionNum) {
-        if (remainingStudents.isEmpty())
-            return List.of();
-
-        var currentSection = availableTeachers.stream()
-            .flatMap(teacher -> availableClassrooms.stream().map(classroom -> entry(teacher, classroom)))
-            .map(entry -> getMatchingSchedule(course, entry.getKey(), entry.getValue(), remainingStudents, course.hoursPerWeek(), sectionNum))
-            .filter(Optional::isPresent).map(Optional::get)
-            .findFirst().orElseThrow(() -> new IllegalStateException("No arrangement found for course #" + course.id()));
-
-        updateSchedules(course, currentSection, currentSection.students);
-
-        var newAvailableClassrooms = availableClassrooms.stream()
-            .filter(classroom -> classroom.id() != currentSection.classroom.id() || hasEnoughWorkHours(classroom, course))
-            .toList();
-
-        var newAvailableTeachers = availableTeachers.stream()
-            .filter(teacher -> teacher.id() != currentSection.teacher.id() || hasEnoughWorkHours(teacher, course))
-            .toList();
-
-        var sectionStudentSet = new HashSet<>(currentSection.students);
-        var newAvailableStudents = remainingStudents.stream()
-            .filter(student -> !sectionStudentSet.contains(student))
+        var students = courseDemand.students().stream()
             .sorted(comparing(this::getRemainingStudyHours).reversed())
             .toList();
 
+        var classrooms = specializationToClassrooms.get(course.specializationId()).stream()
+            .filter(data -> hasEnoughWorkHours(data, course))
+            .sorted(comparing(this::getRemainingClassHours).reversed())
+            .toList();
+
+        var teachers = specializationToTeachers.get(course.specializationId()).stream()
+            .filter(data -> hasEnoughWorkHours(data, course))
+            .sorted(comparing(this::getRemainingTeacherHours).reversed())
+            .toList();
+
+        var sections = scheduleSections(course, teachers, classrooms, students, 1);
+
         return Stream.concat(
-            Stream.of(currentSection),
+            sections.stream(),
+            generateCoreSchedule(courseDemandIndex + 1).stream()
+        ).toList();
+    }
+
+    private List<CourseSection> scheduleSections(
+        CourseData course,
+        List<TeacherData> availableTeachers,
+        List<ClassroomData> availableClassrooms,
+        List<StudentData> students,
+        int sectionNum
+    ) {
+        if (students.isEmpty())
+            return List.of();
+
+        var teacherClassrooms = availableTeachers.stream().flatMap(teacher ->
+            availableClassrooms.stream().map(classroom -> entry(teacher, classroom))
+        ).toList();
+
+        var section = teacherClassrooms.stream()
+            .map(entry -> getMatchingSchedule(course, entry.getKey(), entry.getValue(), students, course.hoursPerWeek(), sectionNum))
+            .findFirst().orElseThrow(() -> new IllegalStateException("No arrangement found for course #" + course.id()));
+
+        updateSchedules(section);
+
+        var newAvailableClassrooms = availableClassrooms.stream()
+            .filter(classroom -> classroom.id() != section.classroom().id() || hasEnoughWorkHours(classroom, course))
+            .toList();
+
+        var newAvailableTeachers = availableTeachers.stream()
+            .filter(teacher -> teacher.id() != section.teacher().id() || hasEnoughWorkHours(teacher, course))
+            .toList();
+
+        var sectionStudentSet = new HashSet<>(section.students());
+        var newAvailableStudents = students.stream()
+            .filter(student -> !sectionStudentSet.contains(student))
+            .toList();
+
+        return Stream.concat(
+            Stream.of(section),
             scheduleSections(course, newAvailableTeachers, newAvailableClassrooms, newAvailableStudents, sectionNum + 1).stream()
         ).toList();
     }
 
-    private void updateSchedules(CourseData course, CourseSection currentSection, Collection<StudentData> students) {
+    private void updateSchedules(CourseSection section) {
         // Updating schedules
-        updateSchedule(classroomSchedules, currentSection.classroom.id(), currentSection, course);
-        updateSchedule(teacherSchedules, currentSection.teacher.id(), currentSection, course);
+        updateSchedule(classroomSchedules, section.classroom().id(), section);
+        updateSchedule(teacherSchedules, section.teacher().id(), section);
 
-        for (var student : students) {
-            updateSchedule(studentSchedules, student.id(), currentSection, course);
+        for (var student : section.students()) {
+            updateSchedule(studentSchedules, student.id(), section);
         }
 
         // Update remaining hours
-        var teacherRemainingHours = teacherRemainingDailyHours.get(currentSection.teacher.id());
-        for (var weekdaySlots : currentSection.timeSlots.stream().collect(groupingBy(TimeSlot::weekday)).entrySet()) {
+        var teacherRemainingHours = teacherRemainingDailyHours.get(section.teacher().id());
+        for (var weekdaySlots : section.timeSlots().stream().collect(groupingBy(TimeSlot::weekday)).entrySet()) {
             updateHours(teacherRemainingHours, weekdaySlots.getKey(), weekdaySlots.getValue().size());
         }
 
-        for (var student : students) {
-            updateHours(studentRemainingWeeklyHours, student.id(), currentSection.timeSlots().size());
+        for (var student : section.students()) {
+            updateHours(studentRemainingWeeklyHours, student.id(), section.timeSlots().size());
         }
 
-        updateHours(classroomRemainingWeeklyHours, currentSection.classroom.id(), currentSection.timeSlots().size());
+        updateHours(classroomRemainingWeeklyHours, section.classroom().id(), section.timeSlots().size());
     }
 
     private <K> void updateHours(Map<K, Integer> remainingWeeklyHours, K id, int amount) {
         remainingWeeklyHours.computeIfPresent(id, (key, previous) -> previous - amount);
     }
 
-    private void updateSchedule(Map<Integer, Map<TimeSlot, CourseData>> schedules, int id, CourseSection section, CourseData course) {
+    private void updateSchedule(Map<Integer, Map<TimeSlot, CourseData>> schedules, int id, CourseSection section) {
         var schedule = schedules.computeIfAbsent(id, key -> new HashMap<>());
         for (var timeSlot : section.timeSlots()) {
-            schedule.put(timeSlot, course);
+            schedule.put(timeSlot, section.course());
         }
     }
 
-    private Optional<CourseSection> getMatchingSchedule(CourseData course, TeacherData teacher, ClassroomData classroom, List<StudentData> remainingStudents, int hoursPerWeek, int sectionNum) {
-        var teacherSchedule = teacherSchedules.computeIfAbsent(teacher.id(), key -> new HashMap<>());
-        var classroomSchedule = classroomSchedules.computeIfAbsent(classroom.id(), key -> new HashMap<>());
+    private CourseSection getMatchingSchedule(CourseData course, TeacherData teacher, ClassroomData classroom, List<StudentData> students, int hoursPerWeek, int sectionNum) {
+        var minimumAccepted = max(1, min(classroom.capacity(), students.size()) - 2);
+
         var teacherWeekdayRemainingHours = teacherRemainingDailyHours.get(teacher.id());
 
-        var studentFilledTimes = remainingStudents.stream().collect(toMap(
+        var studentFreeTimes = students.stream().collect(toMap(
             StudentData::id,
             student -> availableTimeSlots.stream()
-                .filter(slot -> studentSchedules.computeIfAbsent(student.id(), key -> new HashMap<>()).computeIfAbsent(slot, key -> null) == null)
+                .filter(slot -> studentSchedules.computeIfAbsent(student.id(), key -> new HashMap<>()).get(slot) == null)
                 .collect(toSet())));
 
-        var minimumAccepted = max(1, min(classroom.capacity(), remainingStudents.size()) - 2);
-
-        var matchingSlots = availableTimeSlots.stream()
-            .filter(timeSlot -> !teacherSchedule.containsKey(timeSlot))
-            .filter(timeSlot -> !classroomSchedule.containsKey(timeSlot))
-            .filter(timeSlot -> {
-                long availableStudents = studentFilledTimes.values().stream()
-                    .filter(slots -> slots.contains(timeSlot))
-                    .count();
-                return availableStudents >= minimumAccepted;
-            }).toList();
+        var matchingSlots = findAvailableSlots(teacher, classroom, studentFreeTimes, minimumAccepted);
 
         return getKCombinations(matchingSlots, hoursPerWeek, matchingSlots.size() - 1, 0, null)
             .map(Stream::toList)
-            .filter(slot -> teacherHasHours(slot, teacherWeekdayRemainingHours))
-            .map(slots -> {
-                var students = remainingStudents.stream().filter(student -> {
-                    var studentSchedule = studentSchedules.computeIfAbsent(student.id(), key -> new HashMap<>());
-                    return slots.stream().noneMatch(studentSchedule::containsKey);
-                }).limit(classroom.capacity()).toList();
-
-                if (students.size() < minimumAccepted) return Optional.<CourseSection>empty();
-
-                return Optional.of(new CourseSection(course, teacher, classroom, slots, students, sectionNum));
-            })
-            .filter(Optional::isPresent)
-            .map(Optional::get)
+            .filter(slots -> teacherCanTeachAt(slots, teacherWeekdayRemainingHours))
+            .map(slots -> generateSection(course, sectionNum, teacher, classroom, students, studentFreeTimes, slots))
+            .filter(section -> section.students().size() >= minimumAccepted)
             .limit(10)
-            .max(comparing(section -> section.students.size()));
+            .max(comparing(section -> section.students().size()))
+            .orElseThrow(() -> new IllegalStateException("No arrangement found for course #" + course.id()));
     }
 
-    private static boolean teacherHasHours(List<TimeSlot> slot, Map<Weekday, Integer> remainingHours) {
-        return slot.stream().collect(groupingBy(TimeSlot::weekday)).entrySet().stream()
-            .allMatch(entry -> remainingHours.get(entry.getKey()) >= entry.getValue().size());
+    private List<TimeSlot> findAvailableSlots(TeacherData teacher, ClassroomData classroom, Map<Integer, Set<TimeSlot>> studentFreeTimes, int minimumAccepted) {
+        var teacherSchedule = teacherSchedules.computeIfAbsent(teacher.id(), key -> new HashMap<>());
+        var classroomSchedule = classroomSchedules.computeIfAbsent(classroom.id(), key -> new HashMap<>());
+
+        return availableTimeSlots.stream()
+            .filter(timeSlot -> !teacherSchedule.containsKey(timeSlot))
+            .filter(timeSlot -> !classroomSchedule.containsKey(timeSlot))
+            .filter(timeSlot -> hasEnoughStudents(timeSlot, studentFreeTimes, minimumAccepted))
+            .toList();
     }
 
-    private Stream<Stream<TimeSlot>> getKCombinations(List<TimeSlot> matchingSlots, int k, int index, int consecutiveCounter, TimeSlot lastSelected) {
-        if (k > index + 1)
+    private static boolean hasEnoughStudents(TimeSlot timeSlot, Map<Integer, Set<TimeSlot>> studentFreeTime, int minimumAccepted) {
+        var availableStudents = studentFreeTime.values().stream()
+            .filter(slots -> slots.contains(timeSlot))
+            .count();
+        return availableStudents >= minimumAccepted;
+    }
+
+    private static boolean teacherCanTeachAt(List<TimeSlot> slot, Map<Weekday, Integer> remainingHours) {
+        var hoursByDay = slot.stream().collect(groupingBy(TimeSlot::weekday, counting()));
+        return hoursByDay.entrySet().stream()
+            .allMatch(entry -> remainingHours.get(entry.getKey()) >= entry.getValue());
+    }
+
+    private CourseSection generateSection(
+        CourseData course,
+        int sectionNum,
+        TeacherData teacher,
+        ClassroomData classroom,
+        List<StudentData> students,
+        Map<Integer, Set<TimeSlot>> studentFreeTimes,
+        List<TimeSlot> slots
+    ) {
+        var selectedStudents = students.stream()
+            .filter(student -> isStudentAvailable(student, slots, studentFreeTimes))
+            .limit(classroom.capacity())
+            .toList();
+
+        return new CourseSection(course, teacher, classroom, slots, selectedStudents, sectionNum);
+    }
+
+    private static boolean isStudentAvailable(StudentData student, List<TimeSlot> slots, Map<Integer, Set<TimeSlot>> studentFreeTimes) {
+        return studentFreeTimes.get(student.id()).containsAll(slots);
+    }
+
+    private Stream<Stream<TimeSlot>> getKCombinations(
+        List<TimeSlot> matchingSlots,
+        int size,
+        int index,
+        int consecutiveCounter,
+        TimeSlot lastSelected
+    ) {
+        if (size > index + 1)
             return Stream.empty();
 
-        if (k == 0)
+        if (size == 0)
             return Stream.of(Stream.empty());
 
         var timeSlot = matchingSlots.get(index);
         var currentConsecutiveCounter = areConsecutive(lastSelected, timeSlot) ? consecutiveCounter + 1 : 0;
 
         if (currentConsecutiveCounter > timeConfig.getMaxConsecutiveClassHours())
-            return getKCombinations(matchingSlots, k, index - 1, 0, lastSelected);
+            return getKCombinations(matchingSlots, size, index - 1, 0, lastSelected);
 
         if (index == 0)
             return Stream.of(Stream.of(matchingSlots.getFirst()));
 
         // Lazy concatenation using suppliers. Stream.concat eagerly loads
         return concatLazy(
-            // Keep path
-            () -> getKCombinations(matchingSlots, k - 1, index - 1, currentConsecutiveCounter, timeSlot)
+            // Keeps current item
+            () -> getKCombinations(matchingSlots, size - 1, index - 1, currentConsecutiveCounter, timeSlot)
                 .map(rest -> Stream.concat(rest, Stream.of(timeSlot))),
-            // Skip path
-            () -> getKCombinations(matchingSlots, k, index - 1, currentConsecutiveCounter, lastSelected));
+            // Skip current item
+            () -> getKCombinations(matchingSlots, size, index - 1, currentConsecutiveCounter, lastSelected));
     }
 
     @SafeVarargs
@@ -280,7 +306,7 @@ public class ScheduleCalculator {
     }
 
     private static boolean areConsecutive(TimeSlot first, TimeSlot second) {
-        return first != null && second.weekday() == first.weekday() && first.slot + 1 == second.slot();
+        return first != null && second.weekday() == first.weekday() && first.slot() + 1 == second.slot();
     }
 
     private boolean hasEnoughWorkHours(TeacherData data, CourseData course) {
@@ -292,7 +318,7 @@ public class ScheduleCalculator {
     }
 
     private int getRemainingTeacherHours(TeacherData data) {
-        return teacherRemainingDailyHours.get(data.id()).values().stream().mapToInt(hoursPerDay -> hoursPerDay).sum();
+        return teacherRemainingDailyHours.get(data.id()).values().stream().mapToInt(hours -> hours).sum();
     }
 
     private int getRemainingClassHours(ClassroomData data) {
@@ -330,7 +356,7 @@ public class ScheduleCalculator {
             .toList();
     }
 
-    private static Map<Weekday, Integer> getHoursMap(TeacherData teacher) {
+    private static Map<Weekday, Integer> generateHoursMap(TeacherData teacher) {
         return Arrays.stream(Weekday.values()).collect(toMap(identity(), day -> teacher.maxDailyHours()));
     }
 }

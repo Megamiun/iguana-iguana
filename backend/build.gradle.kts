@@ -20,6 +20,7 @@ dependencies {
     implementation(libs.spring.boot.starter.actuator)
 
     implementation(libs.spring.boot.starter.data.jpa)
+    implementation(libs.spring.boot.starter.flyway)
 
     implementation(libs.hibernate.dialects)
     implementation(libs.sqlite.jdbc)

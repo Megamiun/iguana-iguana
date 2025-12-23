@@ -1,8 +1,8 @@
 # Getting Started
 
 ## Prerequisites
-- Java 17+
-- Node.js 18+
+- Java 21+
+- Node.js 22+
 - npm
 
 ## Running the Application

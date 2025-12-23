@@ -2,11 +2,9 @@ package br.com.gabryel.maplewood.service.scheduler;
 
 import br.com.gabryel.maplewood.model.SemesterType;
 import br.com.gabryel.maplewood.model.db.Course;
-import br.com.gabryel.maplewood.model.db.enums.CourseType;
+import br.com.gabryel.maplewood.model.dto.CourseData;
 import br.com.gabryel.maplewood.repository.CourseRepository;
-import lombok.Builder;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -22,19 +20,6 @@ import static java.util.stream.Collectors.toMap;
 public class CourseDataService {
     private final CourseRepository courseRepository;
 
-    @Builder
-    public record CourseData(
-        Integer id,
-        String name,
-        SemesterType semesterType,
-        CourseType courseType,
-        CourseData prerequisite,
-        int gradeLevelMin,
-        int gradeLevelMax,
-        int specializationId,
-        int hoursPerWeek
-    ) {}
-
     public Map<Integer, CourseData> getCoursesFor(SemesterType semesterType) {
         var courses = courseRepository.findAll();
 
@@ -44,7 +29,7 @@ public class CourseDataService {
         }
 
         return courseDataById.entrySet().stream()
-            .filter(idToCourse -> idToCourse.getValue().semesterType == semesterType)
+            .filter(idToCourse -> idToCourse.getValue().semesterType() == semesterType)
             .collect(toMap(Entry::getKey, Entry::getValue));
     }
 
@@ -54,6 +39,7 @@ public class CourseDataService {
 
         return cache.computeIfAbsent(course.getId(), id -> CourseData.builder()
             .id(course.getId())
+            .code(course.getCode())
             .name(course.getName())
             .semesterType(getSemesterType(course.getSemesterOrder()))
             .courseType(course.getCourseType())

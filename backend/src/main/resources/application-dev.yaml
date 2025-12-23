@@ -1,3 +1,9 @@
+spring:
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+
 logging:
   level:
     br.com.gabryel.maplewood: trace

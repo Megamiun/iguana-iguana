@@ -2,6 +2,7 @@ package br.com.gabryel.maplewood.service.scheduler;
 
 import br.com.gabryel.maplewood.model.db.Student;
 import br.com.gabryel.maplewood.model.db.StudentCourseHistory;
+import br.com.gabryel.maplewood.model.dto.StudentData;
 import br.com.gabryel.maplewood.repository.StudentCourseHistoryRepository;
 import br.com.gabryel.maplewood.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +22,6 @@ import static java.util.stream.Collectors.toMap;
 public class StudentDataService {
     private final StudentRepository studentRepository;
     private final StudentCourseHistoryRepository studentCourseHistoryRepository;
-
-    public record StudentData(int id, int gradeLevel, List<Integer> passedCourses) {}
 
     public Map<Integer, StudentData> getStudents() {
         var activeStudents = studentRepository.findByStatus("active");

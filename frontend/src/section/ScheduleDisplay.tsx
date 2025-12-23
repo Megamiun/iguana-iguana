@@ -12,9 +12,13 @@ const formatTime = (hour: number): string => {
     return `${hour}AM`;
 }
 
+const formatWeekday = (weekday: string): string => {
+    return weekday.charAt(0) + weekday.slice(1).toLowerCase();
+}
+
 const formatSchedule = (schedule: ScheduleDurationResponse[]): string => {
     return schedule.map(slot =>
-        `${slot.weekday} ${formatTime(slot.start)}-${formatTime(slot.end)}`
+        `${formatWeekday(slot.weekday)} ${formatTime(slot.start)}-${formatTime(slot.end)}`
     ).join(", ");
 }
 
@@ -33,7 +37,7 @@ export default ({schedule}: ScheduleDisplayProps) => {
         schedule.courses.map((course, index) => (
             <Card className="course-card" key={index} variant="outlined">
                 <CardContent>
-                    <p><strong>Course:</strong> {course.name} / Section - {course.section}</p>
+                    <p><strong>Course:</strong> {course.code} / Section - {course.section}</p>
                     <p><strong>Teacher:</strong> {course.teacher}</p>
                     <p><strong>Room:</strong> {course.classroom}</p>
                     <p><strong>Schedule:</strong> {formatSchedule(course.schedule)}</p>

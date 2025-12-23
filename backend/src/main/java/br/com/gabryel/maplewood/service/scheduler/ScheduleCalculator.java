@@ -2,12 +2,15 @@ package br.com.gabryel.maplewood.service.scheduler;
 
 import br.com.gabryel.maplewood.config.TimeSchedulingConfig;
 import br.com.gabryel.maplewood.model.Weekday;
-import br.com.gabryel.maplewood.service.scheduler.ClassroomDataService.ClassroomData;
-import br.com.gabryel.maplewood.service.scheduler.CourseDataService.CourseData;
-import br.com.gabryel.maplewood.service.scheduler.StudentDataService.StudentData;
-import br.com.gabryel.maplewood.service.scheduler.TeacherDataService.TeacherData;
+import br.com.gabryel.maplewood.model.dto.ClassroomData;
+import br.com.gabryel.maplewood.model.dto.CourseData;
+import br.com.gabryel.maplewood.model.dto.CourseSectionDto;
+import br.com.gabryel.maplewood.model.dto.StudentData;
+import br.com.gabryel.maplewood.model.dto.TeacherData;
+import br.com.gabryel.maplewood.model.dto.TimeRange;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,10 +40,20 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 
 @Slf4j
-public class ScheduleCalculator {
 
-    private record CourseDemand(CourseData course, List<StudentData> students) {
-    }
+public class ScheduleCalculator {
+    private record TimeSlot(Weekday weekday, int slot) {}
+
+    private record CourseSectionInternal(
+        CourseData course,
+        int section,
+        List<TimeSlot> timeSlots,
+        TeacherData teacher,
+        ClassroomData classroom,
+        List<StudentData> students
+    ) { }
+
+    private record CourseDemand(CourseData course, List<StudentData> students) { }
 
     private final Map<Integer, CourseData> courses;
     private final TimeSchedulingConfig timeConfig;
@@ -96,13 +109,13 @@ public class ScheduleCalculator {
             .collect(toMap(identity(), key -> availableTimeSlots.size()));
     }
 
-    public List<CourseSection> generateSchedule() {
+    public List<CourseSectionDto> generateSchedule() {
         var coreSections = generateCoreSchedule(0);
         var electiveSections = generateElectiveSchedule(1, getElectiveCourses());
-        return Stream.concat(coreSections.stream(), electiveSections.stream()).toList();
+        return Stream.concat(coreSections.stream(), electiveSections.stream()).map(this::toDto).toList();
     }
 
-    private List<CourseSection> generateCoreSchedule(int courseDemandIndex) {
+    private List<CourseSectionInternal> generateCoreSchedule(int courseDemandIndex) {
         if (courseDemandIndex >= courseDemands.size())
             return List.of();
 
@@ -121,7 +134,7 @@ public class ScheduleCalculator {
         ).toList();
     }
 
-    private List<CourseSection> generateElectiveSchedule(int sectionNum, List<CourseData> electiveCourses) {
+    private List<CourseSectionInternal> generateElectiveSchedule(int sectionNum, List<CourseData> electiveCourses) {
         var sections = electiveCourses.stream().map(course -> {
             var section = scheduleEmptySection(course, extractTeachers(course), extractClassrooms(course), sectionNum);
 
@@ -140,7 +153,7 @@ public class ScheduleCalculator {
         ).toList();
     }
 
-    private CourseSection scheduleEmptySection(CourseData course, List<TeacherData> teachers, List<ClassroomData> classrooms, int sectionNum) {
+    private CourseSectionInternal scheduleEmptySection(CourseData course, List<TeacherData> teachers, List<ClassroomData> classrooms, int sectionNum) {
         var teacherClassrooms = teachers.stream().flatMap(teacher ->
             classrooms.stream().map(classroom -> entry(teacher, classroom))
         ).toList();
@@ -151,7 +164,7 @@ public class ScheduleCalculator {
             .orElse(null);
     }
 
-    private Stream<CourseSection> scheduleEmptySection(CourseData course, int sectionNum, TeacherData teacher, ClassroomData classroom) {
+    private Stream<CourseSectionInternal> scheduleEmptySection(CourseData course, int sectionNum, TeacherData teacher, ClassroomData classroom) {
         var teacherSchedule = teacherSchedules.computeIfAbsent(teacher.id(), key -> new HashMap<>());
         var classroomSchedule = classroomSchedules.computeIfAbsent(classroom.id(), key -> new HashMap<>());
         var teacherWeekdayRemainingHours = teacherRemainingDailyHours.get(teacher.id());
@@ -164,10 +177,10 @@ public class ScheduleCalculator {
         return getKCombinations(matchingSlots, course.hoursPerWeek(), matchingSlots.size() - 1, 0, null)
             .map(Stream::toList)
             .filter(slots -> teacherCanTeachAt(slots, teacherWeekdayRemainingHours))
-            .map(slots -> new CourseSection(course, teacher, classroom, slots, List.of(), sectionNum));
+            .map(slots -> new CourseSectionInternal(course, sectionNum, slots, teacher, classroom, List.of()));
     }
 
-    private List<CourseSection> scheduleSections(
+    private List<CourseSectionInternal> scheduleSections(
         CourseData course,
         List<TeacherData> teachers,
         List<ClassroomData> classrooms,
@@ -208,7 +221,7 @@ public class ScheduleCalculator {
         ).toList();
     }
 
-    private void updateSchedules(CourseSection section) {
+    private void updateSchedules(CourseSectionInternal section) {
         // Updating schedules
         updateSchedule(classroomSchedules, section.classroom().id(), section);
         updateSchedule(teacherSchedules, section.teacher().id(), section);
@@ -234,14 +247,14 @@ public class ScheduleCalculator {
         remainingWeeklyHours.computeIfPresent(id, (key, previous) -> previous - amount);
     }
 
-    private void updateSchedule(Map<Integer, Map<TimeSlot, CourseData>> schedules, int id, CourseSection section) {
+    private void updateSchedule(Map<Integer, Map<TimeSlot, CourseData>> schedules, int id, CourseSectionInternal section) {
         var schedule = schedules.computeIfAbsent(id, key -> new HashMap<>());
         for (var timeSlot : section.timeSlots()) {
             schedule.put(timeSlot, section.course());
         }
     }
 
-    private CourseSection getMatchingSchedule(CourseData course, TeacherData teacher, ClassroomData classroom, List<StudentData> students, int hoursPerWeek, int sectionNum) {
+    private CourseSectionInternal getMatchingSchedule(CourseData course, TeacherData teacher, ClassroomData classroom, List<StudentData> students, int hoursPerWeek, int sectionNum) {
         var minimumAccepted = max(1, min(classroom.capacity(), students.size()) - 2);
 
         var teacherWeekdayRemainingHours = teacherRemainingDailyHours.get(teacher.id());
@@ -288,7 +301,7 @@ public class ScheduleCalculator {
             .allMatch(entry -> remainingHours.get(entry.getKey()) >= entry.getValue());
     }
 
-    private CourseSection generateSection(
+    private CourseSectionInternal generateSection(
         CourseData course,
         int sectionNum,
         TeacherData teacher,
@@ -302,7 +315,7 @@ public class ScheduleCalculator {
             .limit(classroom.capacity())
             .toList();
 
-        return new CourseSection(course, teacher, classroom, slots, selectedStudents, sectionNum);
+        return new CourseSectionInternal(course, sectionNum, slots, teacher, classroom, selectedStudents);
     }
 
     private static boolean isStudentAvailable(StudentData student, List<TimeSlot> slots, Map<Integer, Set<TimeSlot>> studentFreeTimes) {
@@ -404,6 +417,43 @@ public class ScheduleCalculator {
 
     private static Map<Weekday, Integer> generateHoursMap(TeacherData teacher) {
         return Arrays.stream(Weekday.values()).collect(toMap(identity(), day -> teacher.maxDailyHours()));
+    }
+
+    private CourseSectionDto toDto(CourseSectionInternal courseSection) {
+        return new CourseSectionDto(
+            courseSection.course(),
+            courseSection.section, mergeConsecutiveSlots(courseSection.timeSlots), courseSection.teacher(),
+            courseSection.classroom(),
+            courseSection.students
+        );
+    }
+
+    private List<TimeRange> mergeConsecutiveSlots(List<TimeSlot> timeSlots) {
+        var slotsByDay = timeSlots.stream().collect(groupingBy(TimeSlot::weekday, toList()));
+
+        return slotsByDay.entrySet().stream()
+            .flatMap(entry -> mergeConsecutiveSlots(entry.getKey(), entry.getValue()).stream())
+            .sorted(comparing(TimeRange::weekday).thenComparing(TimeRange::start))
+            .toList();
+    }
+
+    private List<TimeRange> mergeConsecutiveSlots(Weekday weekday, List<TimeSlot> slots) {
+        if (slots.isEmpty()) return List.of();
+
+        var merged = new ArrayList<TimeRange>();
+        var sortedSlots = slots.stream().sorted(comparing(TimeSlot::slot)).toList();
+
+        for (var current : sortedSlots) {
+            var currentSlot = current.slot();
+            if (!merged.isEmpty() && currentSlot <= merged.getLast().end()) {
+                var previous = merged.getLast();
+                merged.set(merged.size() - 1, new TimeRange(weekday, previous.start(), currentSlot + 1));
+            } else {
+                merged.add(new TimeRange(weekday, currentSlot, currentSlot + 1));
+            }
+        }
+
+        return merged;
     }
 
     private List<TeacherData> extractTeachers(CourseData course) {

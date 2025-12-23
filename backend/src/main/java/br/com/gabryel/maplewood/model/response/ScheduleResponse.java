@@ -17,6 +17,7 @@ public class ScheduleResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CourseScheduleResponse {
+        private String code;
         private String name;
         private int section;
         private String teacher;

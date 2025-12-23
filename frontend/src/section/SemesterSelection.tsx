@@ -13,16 +13,17 @@ import {
     Typography
 } from "@mui/material";
 import {SemesterResponse} from "../types/semester";
-import {generateSchedule, getSemesters} from "../service/apiClient";
+import {deleteSchedule, generateSchedule, getSchedule, getSemesters} from "../service/apiClient";
 import {ScheduleResponse} from "../types/schedule";
 
 const minWidth = 200
 
 type SemesterSelectionProps = PropsWithChildren<{
+    schedule?: ScheduleResponse
     setSchedule: (schedule: ScheduleResponse) => void
 }>
 
-export default ({setSchedule}: SemesterSelectionProps) => {
+export default ({schedule, setSchedule}: SemesterSelectionProps) => {
     const [availableSemesters, setAvailableSemesters] = useState<SemesterResponse[]>([])
     const [selectedSemesterId, setSelectedSemesterId] = useState<number | null>(null)
     const [loading, setLoading] = useState(true)
@@ -41,13 +42,43 @@ export default ({setSchedule}: SemesterSelectionProps) => {
         }
     }
 
+    const loadSchedule = async () => {
+        if (!selectedSemester) return
+
+        try {
+            const schedule = await getSchedule(selectedSemester.semester, selectedSemester.year)
+            setSchedule(schedule)
+        } catch (error) {
+            console.error("Failed to check/load schedule:", error)
+            setSchedule(null)
+        }
+    }
+
     const handleGenerate = async () => {
         if (!selectedSemester) return
 
-        setSchedule(await generateSchedule(selectedSemester.semester, selectedSemester.year))
+        try {
+            const schedule = await generateSchedule(selectedSemester.semester, selectedSemester.year)
+            setSchedule(schedule)
+        } catch (error) {
+            console.error("Failed to generate schedule:", error)
+            setSchedule(null)
+        }
+    }
+
+    const handleDelete = async () => {
+        if (!selectedSemester) return
+
+        try {
+            await deleteSchedule(selectedSemester.semester, selectedSemester.year)
+        } catch (error) {
+            console.error("Failed to delete schedule:", error)
+        }
+        setSchedule(null)
     }
 
     useEffect(() => { fetchSemesters() }, [])
+    useEffect(() => { loadSchedule() }, [selectedSemesterId])
 
     const selectedSemester = availableSemesters.find(s => s.id === selectedSemesterId)
 
@@ -96,12 +127,22 @@ export default ({setSchedule}: SemesterSelectionProps) => {
                         }
                     </Select>
                 </FormControl>
-                <Button
-                    variant="contained"
-                    size="large"
-                    onClick={handleGenerate}
-                    disabled={!selectedSemester}
-                >Generate</Button>
+                {schedule != undefined ? (
+                    <Button
+                        variant="outlined"
+                        color="error"
+                        size="large"
+                        onClick={handleDelete}
+                        disabled={!selectedSemester}
+                    >Delete</Button>
+                ) : (
+                    <Button
+                        variant="contained"
+                        size="large"
+                        onClick={handleGenerate}
+                        disabled={!selectedSemester}
+                    >Generate</Button>
+                )}
             </Stack>
         </Paper>
     </Box>

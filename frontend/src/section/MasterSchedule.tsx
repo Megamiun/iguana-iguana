@@ -7,7 +7,7 @@ export default () => {
     const [schedule, setSchedule] = useState<ScheduleResponse>(null)
 
     return <>
-        <SemesterSelection setSchedule={setSchedule} />
+        <SemesterSelection schedule={schedule} setSchedule={setSchedule} />
         <ScheduleDisplay schedule={schedule} />
     </>
 }

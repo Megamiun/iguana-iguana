@@ -78,3 +78,5 @@ The frontend will start at `http://localhost:5173`
     - Electives will be created in a best-effort manner using round-robin
     - A backtracking algorithm with rollbacks maybe would be overkill for this scenario
     - For scenarios with less slack, a backtracking algorithm could also become too time-consuming due to combinatorial explosion
+- For simplicity's sake, no master Schedule object has been created
+  - Although it could be useful in scenarios where drafts and reviews may be necessary, it would have been a completely out of scope choice for this MVP

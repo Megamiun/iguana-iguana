@@ -1,120 +1,30 @@
-import {useState, useEffect} from "react";
-import {
-    Box,
-    Container,
-    FormControl,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    Typography,
-    CircularProgress
-} from "@mui/material";
+import {useEffect, useState} from "react";
+import {Box, Container, FormControl, InputLabel, MenuItem, Paper, Select, Typography} from "@mui/material";
 import WeeklyCalendar from "../component/WeeklyCalendar";
 import {ClassroomScheduleResponse} from "../types/schedule";
-
-// Mock data - replace with actual API call
-const mockClassrooms = [
-    { id: 205, name: "Classroom-205" },
-    { id: 301, name: "Science-Lab-A" },
-    { id: 102, name: "Art-Studio-1" }
-]
-
-const mockClassroomSchedule: ClassroomScheduleResponse = {
-    classroomId: 205,
-    classroomName: "Classroom-205",
-    timeSlots: [
-        {
-            weekday: "MONDAY",
-            start: 9,
-            end: 10,
-            courseCode: "MAT101",
-            courseName: "Algebra I",
-            section: 1,
-            teacher: "John Smith",
-            teacherId: 1,
-            filledSpots: 10,
-            availableSpots: 0
-        },
-        {
-            weekday: "MONDAY",
-            start: 10,
-            end: 11,
-            courseCode: "MAT101",
-            courseName: "Algebra I",
-            section: 3,
-            teacher: "John Smith",
-            teacherId: 1,
-            filledSpots: 9,
-            availableSpots: 1
-        },
-        {
-            weekday: "WEDNESDAY",
-            start: 10,
-            end: 11,
-            courseCode: "MAT101",
-            courseName: "Algebra I",
-            section: 1,
-            teacher: "John Smith",
-            teacherId: 1,
-            filledSpots: 10,
-            availableSpots: 0
-        },
-        {
-            weekday: "WEDNESDAY",
-            start: 11,
-            end: 12,
-            courseCode: "MAT101",
-            courseName: "Algebra I",
-            section: 3,
-            teacher: "John Smith",
-            teacherId: 1,
-            filledSpots: 9,
-            availableSpots: 1
-        },
-        {
-            weekday: "FRIDAY",
-            start: 12,
-            end: 14,
-            courseCode: "MAT101",
-            courseName: "Algebra I",
-            section: 3,
-            teacher: "John Smith",
-            teacherId: 1,
-            filledSpots: 9,
-            availableSpots: 1
-        },
-        {
-            weekday: "FRIDAY",
-            start: 14,
-            end: 16,
-            courseCode: "MAT101",
-            courseName: "Algebra I",
-            section: 1,
-            teacher: "John Smith",
-            teacherId: 1,
-            filledSpots: 10,
-            availableSpots: 0
-        }
-    ]
-}
+import {getClassrooms, getClassroomSchedule} from "../service/apiClient";
+import {Semester} from "../types/semester";
+import {ClassroomResponse} from "../types/base";
 
 export default () => {
     const [selectedClassroomId, setSelectedClassroomId] = useState<number | null>(null)
     const [classroomSchedule, setClassroomSchedule] = useState<ClassroomScheduleResponse | null>(null)
-    const [loading, setLoading] = useState(false)
+    const [classrooms, setClassrooms] = useState<ClassroomResponse[] | null>(null)
 
-    useEffect(() => {
-        if (selectedClassroomId) {
-            setLoading(true)
-            // TODO: Replace with actual API call
-            // fetchClassroomSchedule(selectedClassroomId)
-            setTimeout(() => {
-                setClassroomSchedule(mockClassroomSchedule)
-                setLoading(false)
-            }, 300)
-        }
-    }, [selectedClassroomId])
+    const loadClassrooms = async () => {
+        setClassrooms((await getClassrooms()).content)
+    }
+
+    const loadClassroomSchedule = async (selectedClassroomId: number) => {
+        // TODO Remove hardcoded
+        setClassroomSchedule(await getClassroomSchedule(selectedClassroomId, 2024, Semester.FALL))
+    }
+
+    useEffect(() => { loadClassrooms() }, []);
+    useEffect(() => { selectedClassroomId && loadClassroomSchedule(selectedClassroomId) }, [selectedClassroomId])
+
+    if (classrooms == null)
+        return <></>
 
     return (
         <Container maxWidth="xl">
@@ -135,7 +45,7 @@ export default () => {
                             value={selectedClassroomId ?? ''}
                             onChange={e => setSelectedClassroomId(Number(e.target.value))}
                         >
-                            {mockClassrooms.map(classroom => (
+                            {classrooms.map(classroom => (
                                 <MenuItem key={classroom.id} value={classroom.id}>
                                     {classroom.name}
                                 </MenuItem>
@@ -144,28 +54,20 @@ export default () => {
                     </FormControl>
                 </Paper>
 
-                {loading && (
-                    <Box display="flex" justifyContent="center" p={4}>
-                        <CircularProgress />
-                    </Box>
-                )}
-
-                {!loading && classroomSchedule && (
-                    <Box>
-                        <Typography variant="h6" gutterBottom>
-                            {classroomSchedule.classroomName} Weekly Schedule
-                        </Typography>
-                        <WeeklyCalendar timeSlots={classroomSchedule.timeSlots} />
-                    </Box>
-                )}
-
-                {!loading && !classroomSchedule && selectedClassroomId && (
-                    <Box display="flex" justifyContent="center" p={4}>
-                        <Typography variant="body1" color="text.secondary">
-                            No schedule found for this classroom
-                        </Typography>
-                    </Box>
-                )}
+                {
+                    classroomSchedule ?
+                        <Box>
+                            <Typography variant="h6" gutterBottom>
+                                {classroomSchedule.classroomName} Weekly Schedule
+                            </Typography>
+                            <WeeklyCalendar timeSlots={classroomSchedule.timeSlots} />
+                        </Box> :
+                        <Box display="flex" justifyContent="center" p={4}>
+                            <Typography variant="body1" color="text.secondary">
+                                No schedule found for this classroom
+                            </Typography>
+                        </Box>
+                }
             </Box>
         </Container>
     )

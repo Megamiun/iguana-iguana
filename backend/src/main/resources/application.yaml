@@ -11,6 +11,10 @@ spring:
     hibernate:
       ddl-auto: none
 
+server:
+  servlet:
+    context-path: /api
+
 # For simplicity’s sake, only discrete intervals of hours will be used.
 maplewood:
   scheduling:

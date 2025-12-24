@@ -1,23 +1,32 @@
 package br.com.gabryel.maplewood.controller;
 
-import br.com.gabryel.maplewood.model.response.CourseResponse;
+import br.com.gabryel.maplewood.api.CoursesApi;
+import br.com.gabryel.maplewood.api.model.CoursePageResponse;
+import br.com.gabryel.maplewood.api.model.CourseResponse;
 import br.com.gabryel.maplewood.service.CourseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/courses")
 @RequiredArgsConstructor
-public class CourseController {
+public class CourseController implements CoursesApi {
     private final CourseService courseService;
 
-    @GetMapping
-    public Page<CourseResponse> getCourses(@PageableDefault(size = 20) Pageable pageable) {
-        return courseService.getCourses(pageable);
+    @Override
+    public ResponseEntity<CoursePageResponse> getCourses(Integer page, Integer size) {
+        var coursePage = courseService.getCourses(PageRequest.of(page, size));
+        return ResponseEntity.ok(toResponse(coursePage));
+    }
+
+    private CoursePageResponse toResponse(Page<CourseResponse> page) {
+        return new CoursePageResponse()
+            .content(page.getContent())
+            .page(page.getNumber())
+            .size(page.getSize())
+            .totalElements(page.getTotalElements())
+            .totalPages(page.getTotalPages());
     }
 }

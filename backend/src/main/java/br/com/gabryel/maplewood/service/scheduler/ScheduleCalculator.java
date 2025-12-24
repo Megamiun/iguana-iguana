@@ -195,7 +195,7 @@ public class ScheduleCalculator {
         ).toList();
 
         var section = teacherClassrooms.stream()
-            .map(entry -> getMatchingSchedule(course, entry.getKey(), entry.getValue(), students, course.hoursPerWeek(), sectionNum))
+            .map(entry -> getMatchingSchedule(course, entry.getKey(), entry.getValue(), students, sectionNum))
             .findFirst().orElseThrow(() -> new IllegalStateException("No arrangement found for course #" + course.id()));
 
         updateSchedules(section);
@@ -222,6 +222,15 @@ public class ScheduleCalculator {
     }
 
     private void updateSchedules(CourseSectionInternal section) {
+        log.debug(
+            "Scheduling course #{} ({}) - Teacher {} - Classroom {} - {}",
+            section.course().id(),
+            section.course().code(),
+            section.teacher().firstName() + " " + section.teacher().lastName(),
+            section.classroom().name(),
+            section.timeSlots()
+        );
+
         // Updating schedules
         updateSchedule(classroomSchedules, section.classroom().id(), section);
         updateSchedule(teacherSchedules, section.teacher().id(), section);
@@ -254,7 +263,7 @@ public class ScheduleCalculator {
         }
     }
 
-    private CourseSectionInternal getMatchingSchedule(CourseData course, TeacherData teacher, ClassroomData classroom, List<StudentData> students, int hoursPerWeek, int sectionNum) {
+    private CourseSectionInternal getMatchingSchedule(CourseData course, TeacherData teacher, ClassroomData classroom, List<StudentData> students, int sectionNum) {
         var minimumAccepted = max(1, min(classroom.capacity(), students.size()) - 2);
 
         var teacherWeekdayRemainingHours = teacherRemainingDailyHours.get(teacher.id());
@@ -267,12 +276,12 @@ public class ScheduleCalculator {
 
         var matchingSlots = findAvailableSlots(teacher, classroom, studentFreeTimes, minimumAccepted);
 
-        return getKCombinations(matchingSlots, hoursPerWeek, matchingSlots.size() - 1, 0, null)
+        return getKCombinations(matchingSlots, course.hoursPerWeek(), matchingSlots.size() - 1, 0, null)
             .map(Stream::toList)
             .filter(slots -> teacherCanTeachAt(slots, teacherWeekdayRemainingHours))
             .map(slots -> generateSection(course, sectionNum, teacher, classroom, students, studentFreeTimes, slots))
             .filter(section -> section.students().size() >= minimumAccepted)
-            .limit(10)
+            .limit(5)
             .max(comparing(section -> section.students().size()))
             .orElseThrow(() -> new IllegalStateException("No arrangement found for course #" + course.id()));
     }
@@ -336,10 +345,10 @@ public class ScheduleCalculator {
             return Stream.of(Stream.empty());
 
         var timeSlot = matchingSlots.get(index);
-        var currentConsecutiveCounter = areConsecutive(timeSlot, lastSelected) ? consecutiveCounter + 1 : 0;
+        var currentConsecutiveCounter = areConsecutive(timeSlot, lastSelected) ? consecutiveCounter + 1 : 1;
 
         if (currentConsecutiveCounter > timeConfig.getMaxConsecutiveClassHours())
-            return getKCombinations(matchingSlots, size, index - 1, 0, lastSelected);
+            return getKCombinations(matchingSlots, size, index - 1, currentConsecutiveCounter, lastSelected);
 
         if (index == 0)
             return Stream.of(Stream.of(matchingSlots.getFirst()));
@@ -348,9 +357,9 @@ public class ScheduleCalculator {
         return concatLazy(
             // Keeps current item
             () -> getKCombinations(matchingSlots, size - 1, index - 1, currentConsecutiveCounter, timeSlot)
-                .map(rest -> Stream.concat(Stream.of(timeSlot), rest)),
+                .map(next -> Stream.concat(Stream.of(timeSlot), next)),
             // Skip current item
-            () -> getKCombinations(matchingSlots, size, index - 1, 0, lastSelected));
+            () -> getKCombinations(matchingSlots, size, index - 1, currentConsecutiveCounter, lastSelected));
     }
 
     @SafeVarargs

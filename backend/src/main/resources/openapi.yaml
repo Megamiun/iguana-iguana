@@ -1,0 +1,721 @@
+openapi: 3.0.3
+info:
+  title: Maplewood High School Scheduling API
+  description: API for managing school schedules, students, teachers, and classrooms
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api
+    description: Local development server
+
+tags:
+  - name: schedules
+    description: Master schedule operations
+  - name: semesters
+    description: Semester management
+  - name: students
+    description: Student operations
+  - name: teachers
+    description: Teacher operations
+  - name: classrooms
+    description: Classroom operations
+  - name: courses
+    description: Course operations
+
+paths:
+  /schedule/{year}/{semester}:
+    get:
+      tags:
+        - schedules
+      summary: Get master schedule
+      operationId: getSchedule
+      parameters:
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: semester
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/SemesterSeason'
+      responses:
+        '200':
+          description: Schedule retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+        '404':
+          description: Schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - schedules
+      summary: Generate master schedule
+      operationId: generateSchedule
+      parameters:
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: semester
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/SemesterSeason'
+      responses:
+        '200':
+          description: Schedule generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+        '409':
+          description: Schedule already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - schedules
+      summary: Delete master schedule
+      operationId: deleteSchedule
+      parameters:
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: semester
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/SemesterSeason'
+      responses:
+        '204':
+          description: Schedule deleted successfully
+        '404':
+          description: Schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /semesters:
+    get:
+      tags:
+        - semesters
+      summary: List available semesters
+      operationId: getSemesters
+      responses:
+        '200':
+          description: Semesters retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SemesterPageResponse'
+
+  /students:
+    get:
+      tags:
+        - students
+      summary: List students
+      operationId: getStudents
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Students retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentPageResponse'
+
+  /students/{id}/schedule/{year}/{semester}:
+    get:
+      tags:
+        - students
+      summary: Get student schedule
+      operationId: getStudentSchedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: semester
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/SemesterSeason'
+      responses:
+        '200':
+          description: Student schedule retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentScheduleResponse'
+        '404':
+          description: Student or schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /teachers:
+    get:
+      tags:
+        - teachers
+      summary: List teachers
+      operationId: getTeachers
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Teachers retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherPageResponse'
+
+  /teachers/{id}/schedule/{year}/{semester}:
+    get:
+      tags:
+        - teachers
+      summary: Get teacher schedule
+      operationId: getTeacherSchedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: semester
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/SemesterSeason'
+      responses:
+        '200':
+          description: Teacher schedule retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherScheduleResponse'
+        '404':
+          description: Teacher or schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /classrooms:
+    get:
+      tags:
+        - classrooms
+      summary: List classrooms
+      operationId: getClassrooms
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Classrooms retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassroomPageResponse'
+
+  /classrooms/{id}/schedule/{year}/{semester}:
+    get:
+      tags:
+        - classrooms
+      summary: Get classroom schedule
+      operationId: getClassroomSchedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: semester
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/SemesterSeason'
+      responses:
+        '200':
+          description: Classroom schedule retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassroomScheduleResponse'
+        '404':
+          description: Classroom or schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /courses:
+    get:
+      tags:
+        - courses
+      summary: List courses
+      operationId: getCourses
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Courses retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoursePageResponse'
+
+components:
+  schemas:
+    SemesterSeason:
+      type: string
+      enum:
+        - FALL
+        - SPRING
+
+    Weekday:
+      type: string
+      enum:
+        - MONDAY
+        - TUESDAY
+        - WEDNESDAY
+        - THURSDAY
+        - FRIDAY
+
+    CourseType:
+      type: string
+      enum:
+        - CORE
+        - ELECTIVE
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - timestamp
+        - path
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+
+    PageResponse:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+
+    ScheduleDurationResponse:
+      type: object
+      required:
+        - weekday
+        - start
+        - end
+      properties:
+        weekday:
+          $ref: '#/components/schemas/Weekday'
+        start:
+          type: integer
+        end:
+          type: integer
+
+    CourseScheduleResponse:
+      type: object
+      required:
+        - code
+        - name
+        - section
+        - teacher
+        - classroom
+        - schedule
+        - availableSpots
+        - filledSpots
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        section:
+          type: integer
+        teacher:
+          type: string
+        classroom:
+          type: string
+        schedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleDurationResponse'
+        availableSpots:
+          type: integer
+        filledSpots:
+          type: integer
+
+    ScheduleResponse:
+      type: object
+      required:
+        - courses
+      properties:
+        courses:
+          type: array
+          items:
+            $ref: '#/components/schemas/CourseScheduleResponse'
+
+    TimeSlotResponse:
+      type: object
+      required:
+        - weekday
+        - start
+        - end
+        - courseCode
+        - courseName
+        - section
+      properties:
+        weekday:
+          $ref: '#/components/schemas/Weekday'
+        start:
+          type: integer
+        end:
+          type: integer
+        courseCode:
+          type: string
+        courseName:
+          type: string
+        section:
+          type: integer
+        classroom:
+          type: string
+        classroomId:
+          type: integer
+        teacher:
+          type: string
+        teacherId:
+          type: integer
+        filledSpots:
+          type: integer
+        availableSpots:
+          type: integer
+
+    StudentResponse:
+      type: object
+      required:
+        - id
+        - firstName
+        - lastName
+        - email
+        - gradeLevel
+        - enrollmentYear
+        - expectedGraduationYear
+        - status
+      properties:
+        id:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        gradeLevel:
+          type: integer
+        enrollmentYear:
+          type: integer
+        expectedGraduationYear:
+          type: integer
+        status:
+          type: string
+
+    StudentScheduleResponse:
+      type: object
+      required:
+        - studentId
+        - studentName
+        - timeSlots
+      properties:
+        studentId:
+          type: integer
+        studentName:
+          type: string
+        timeSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlotResponse'
+
+    TeacherResponse:
+      type: object
+      required:
+        - id
+        - firstName
+        - lastName
+        - email
+        - maxDailyHours
+      properties:
+        id:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        specializationName:
+          type: string
+        maxDailyHours:
+          type: integer
+
+    TeacherScheduleResponse:
+      type: object
+      required:
+        - teacherId
+        - teacherName
+        - timeSlots
+      properties:
+        teacherId:
+          type: integer
+        teacherName:
+          type: string
+        timeSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlotResponse'
+
+    ClassroomResponse:
+      type: object
+      required:
+        - id
+        - name
+        - capacity
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        roomTypeName:
+          type: string
+        equipment:
+          type: string
+        capacity:
+          type: integer
+
+    ClassroomScheduleResponse:
+      type: object
+      required:
+        - classroomId
+        - classroomName
+        - timeSlots
+      properties:
+        classroomId:
+          type: integer
+        classroomName:
+          type: string
+        timeSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlotResponse'
+
+    SemesterResponse:
+      type: object
+      required:
+        - id
+        - name
+        - year
+        - semester
+        - isActive
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        year:
+          type: integer
+        semester:
+          $ref: '#/components/schemas/SemesterSeason'
+        isActive:
+          type: boolean
+
+    PrerequisiteInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+
+    CourseResponse:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - credits
+        - hoursPerWeek
+        - gradeLevelMin
+        - gradeLevelMax
+        - courseType
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        credits:
+          type: number
+        hoursPerWeek:
+          type: integer
+        gradeLevelMin:
+          type: integer
+        gradeLevelMax:
+          type: integer
+        courseType:
+          $ref: '#/components/schemas/CourseType'
+        semester:
+          $ref: '#/components/schemas/SemesterSeason'
+        specializationName:
+          type: string
+        prerequisite:
+          $ref: '#/components/schemas/PrerequisiteInfo'
+
+    StudentPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/PageResponse'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/StudentResponse'
+
+    TeacherPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/PageResponse'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/TeacherResponse'
+
+    ClassroomPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/PageResponse'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/ClassroomResponse'
+
+    SemesterPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/PageResponse'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/SemesterResponse'
+
+    CoursePageResponse:
+      allOf:
+        - $ref: '#/components/schemas/PageResponse'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/CourseResponse'

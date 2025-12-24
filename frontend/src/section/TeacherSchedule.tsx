@@ -1,84 +1,30 @@
-import {useState, useEffect} from "react";
-import {
-    Box,
-    Container,
-    FormControl,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    Typography,
-    CircularProgress
-} from "@mui/material";
+import {useEffect, useState} from "react";
+import {Box, Container, FormControl, InputLabel, MenuItem, Paper, Select, Typography} from "@mui/material";
 import WeeklyCalendar from "../component/WeeklyCalendar";
 import {TeacherScheduleResponse} from "../types/schedule";
-
-// Mock data - replace with actual API call
-const mockTeachers = [
-    { id: 1, name: "John Smith" },
-    { id: 2, name: "Dr. Johnson" },
-    { id: 3, name: "Molly Hendrix" }
-]
-
-const mockTeacherSchedule: TeacherScheduleResponse = {
-    teacherId: 1,
-    teacherName: "John Smith",
-    timeSlots: [
-        {
-            weekday: "MONDAY",
-            start: 9,
-            end: 10,
-            courseCode: "MAT101",
-            courseName: "Algebra I",
-            section: 1,
-            classroom: "Classroom-205",
-            classroomId: 205,
-            filledSpots: 10,
-            availableSpots: 0
-        },
-        {
-            weekday: "WEDNESDAY",
-            start: 10,
-            end: 11,
-            courseCode: "MAT101",
-            courseName: "Algebra I",
-            section: 1,
-            classroom: "Classroom-205",
-            classroomId: 205,
-            filledSpots: 10,
-            availableSpots: 0
-        },
-        {
-            weekday: "FRIDAY",
-            start: 14,
-            end: 16,
-            courseCode: "MAT101",
-            courseName: "Algebra I",
-            section: 1,
-            classroom: "Classroom-205",
-            classroomId: 205,
-            filledSpots: 10,
-            availableSpots: 0
-        }
-    ]
-}
+import {getTeachers, getTeacherSchedule} from "../service/apiClient";
+import {Semester} from "../types/semester";
+import {TeacherResponse} from "../types/base";
 
 export default () => {
     const [selectedTeacherId, setSelectedTeacherId] = useState<number | null>(null)
     const [teacherSchedule, setTeacherSchedule] = useState<TeacherScheduleResponse | null>(null)
-    const [loading, setLoading] = useState(false)
+    const [teachers, setTeachers] = useState<TeacherResponse[] | null>(null)
 
-    useEffect(() => {
-        if (selectedTeacherId) {
-            setLoading(true)
-            // TODO: Replace with actual API call
-            // fetchTeacherSchedule(selectedTeacherId)
-            setTimeout(() => {
-                setTeacherSchedule(mockTeacherSchedule)
-                setLoading(false)
-            }, 300)
-        }
-    }, [selectedTeacherId])
+    const loadTeachers = async () => {
+        setTeachers((await getTeachers()).content)
+    }
+
+    const loadTeacherSchedule = async (selectedTeacherId: number) => {
+        // TODO Remove hardcoded
+        setTeacherSchedule(await getTeacherSchedule(selectedTeacherId, 2024, Semester.FALL))
+    }
+
+    useEffect(() => { loadTeachers() }, []);
+    useEffect(() => { selectedTeacherId && loadTeacherSchedule(selectedTeacherId) }, [selectedTeacherId])
+
+    if (teachers == null)
+        return <></>
 
     return (
         <Container maxWidth="xl">
@@ -99,37 +45,32 @@ export default () => {
                             value={selectedTeacherId ?? ''}
                             onChange={e => setSelectedTeacherId(Number(e.target.value))}
                         >
-                            {mockTeachers.map(teacher => (
+                            {teachers.map(teacher => (
                                 <MenuItem key={teacher.id} value={teacher.id}>
-                                    {teacher.name}
+                                    {
+                                        // TODO Return formatted from API too
+                                        teacher.firstName + " " + teacher.lastName
+                                    }
                                 </MenuItem>
                             ))}
                         </Select>
                     </FormControl>
                 </Paper>
 
-                {loading && (
-                    <Box display="flex" justifyContent="center" p={4}>
-                        <CircularProgress />
-                    </Box>
-                )}
-
-                {!loading && teacherSchedule && (
-                    <Box>
-                        <Typography variant="h6" gutterBottom>
-                            {teacherSchedule.teacherName}'s Weekly Schedule
-                        </Typography>
-                        <WeeklyCalendar timeSlots={teacherSchedule.timeSlots} />
-                    </Box>
-                )}
-
-                {!loading && !teacherSchedule && selectedTeacherId && (
-                    <Box display="flex" justifyContent="center" p={4}>
-                        <Typography variant="body1" color="text.secondary">
-                            No schedule found for this teacher
-                        </Typography>
-                    </Box>
-                )}
+                {
+                    teacherSchedule ?
+                        <Box>
+                            <Typography variant="h6" gutterBottom>
+                                {teacherSchedule.teacherName} Weekly Schedule
+                            </Typography>
+                            <WeeklyCalendar timeSlots={teacherSchedule.timeSlots} />
+                        </Box> :
+                        <Box display="flex" justifyContent="center" p={4}>
+                            <Typography variant="body1" color="text.secondary">
+                                No schedule found for this teacher
+                            </Typography>
+                        </Box>
+                }
             </Box>
         </Container>
     )

@@ -5,6 +5,7 @@ export interface SemesterResponse {
     name: string;
     year: number;
     semester: Semester;
+    isActive: boolean;
 }
 
 export interface PageResponse<T> {

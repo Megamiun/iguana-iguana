@@ -9,6 +9,10 @@ public interface CourseSectionRepository extends JpaRepository<CourseSection, Lo
 
     List<CourseSection> findBySemesterId(Integer semesterId);
 
+    List<CourseSection> findBySemesterIdAndTeacherId(Integer semesterId, Integer teacherId);
+
+    List<CourseSection> findBySemesterIdAndClassroomId(Integer semesterId, Integer classroomId);
+
     boolean existsBySemesterId(Integer semesterId);
 
     void deleteBySemesterId(Integer semesterId);

@@ -32,9 +32,7 @@ export default ({schedule, setSchedule}: SemesterSelectionProps) => {
         try {
             const response = await getSemesters()
             setAvailableSemesters(response.content)
-            if (response.content.length > 0) {
-                setSelectedSemesterId(response.content[0].id)
-            }
+            setSelectedSemesterId(response.content.find(semester => semester.isActive).id)
         } catch (error) {
             console.error("Failed to fetch semesters:", error)
         } finally {
@@ -133,14 +131,14 @@ export default ({schedule, setSchedule}: SemesterSelectionProps) => {
                         color="error"
                         size="large"
                         onClick={handleDelete}
-                        disabled={!selectedSemester}
+                        disabled={!selectedSemester || !selectedSemester.isActive}
                     >Delete</Button>
                 ) : (
                     <Button
                         variant="contained"
                         size="large"
                         onClick={handleGenerate}
-                        disabled={!selectedSemester}
+                        disabled={!selectedSemester || !selectedSemester.isActive}
                     >Generate</Button>
                 )}
             </Stack>

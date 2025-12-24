@@ -1,5 +1,9 @@
 package br.com.gabryel.maplewood.service.scheduler;
 
+import br.com.gabryel.maplewood.api.model.CourseScheduleResponse;
+import br.com.gabryel.maplewood.api.model.ScheduleDurationResponse;
+import br.com.gabryel.maplewood.api.model.ScheduleResponse;
+import br.com.gabryel.maplewood.api.model.Weekday;
 import br.com.gabryel.maplewood.config.TimeSchedulingConfig;
 import br.com.gabryel.maplewood.exception.ScheduleAlreadyExistsException;
 import br.com.gabryel.maplewood.exception.ScheduleNotFoundException;
@@ -7,16 +11,13 @@ import br.com.gabryel.maplewood.exception.SemesterNotFoundException;
 import br.com.gabryel.maplewood.model.SemesterType;
 import br.com.gabryel.maplewood.model.dto.CourseSectionDto;
 import br.com.gabryel.maplewood.model.dto.TimeRange;
-import br.com.gabryel.maplewood.model.response.ScheduleResponse;
-import br.com.gabryel.maplewood.model.response.ScheduleResponse.CourseScheduleResponse;
-import br.com.gabryel.maplewood.model.response.ScheduleResponse.ScheduleDurationResponse;
 import br.com.gabryel.maplewood.repository.SemesterRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 import static br.com.gabryel.maplewood.model.SemesterType.FALL;
-import static java.util.stream.Collectors.collectingAndThen;
-import static java.util.stream.Collectors.toList;
 
 @Service
 @RequiredArgsConstructor
@@ -39,9 +40,10 @@ public class Scheduler {
             throw new ScheduleNotFoundException(year, semesterType.name());
         }
 
-        return sections.stream()
-            .map(this::toResponse)
-            .collect(collectingAndThen(toList(), ScheduleResponse::new));
+        return new ScheduleResponse()
+            .courses(sections.stream()
+                .map(this::toResponse)
+                .toList());
     }
 
     public void deleteSchedule(SemesterType semesterType, int year) {
@@ -74,9 +76,8 @@ public class Scheduler {
 
         persistenceService.persistSchedule(semester.getId(), sections);
 
-        return sections.stream()
-            .map(this::toResponse)
-            .collect(collectingAndThen(toList(), ScheduleResponse::new));
+        var coursesResponse = sections.stream().map(this::toResponse).toList();
+        return new ScheduleResponse().courses(coursesResponse);
     }
 
     private static int getOrderInYear(SemesterType semesterType) {
@@ -87,19 +88,21 @@ public class Scheduler {
     }
 
     private CourseScheduleResponse toResponse(CourseSectionDto section) {
-        return new CourseScheduleResponse(
-            section.course().code(),
-            section.course().name(),
-            section.section(),
-            section.teacher().firstName() + " " + section.teacher().lastName(),
-            section.classroom().name(),
-            section.timeRanges().stream().map(this::toResponse).toList(),
-            section.classroom().capacity() - section.students().size(),
-            section.students().size()
-        );
+        return new CourseScheduleResponse()
+            .code(section.course().code())
+            .name(section.course().name())
+            .section(section.section())
+            .teacher(section.teacher().firstName() + " " + section.teacher().lastName())
+            .classroom(section.classroom().name())
+            .schedule(section.timeRanges().stream().map(this::toResponse).toList())
+            .availableSpots(section.classroom().capacity() - section.students().size())
+            .filledSpots(section.students().size());
     }
 
     private ScheduleDurationResponse toResponse(TimeRange range) {
-        return new ScheduleDurationResponse(range.weekday(), range.start(), range.end());
+        return new ScheduleDurationResponse()
+            .weekday(Weekday.valueOf(range.weekday().name()))
+            .start(range.start())
+            .end(range.end());
     }
 }

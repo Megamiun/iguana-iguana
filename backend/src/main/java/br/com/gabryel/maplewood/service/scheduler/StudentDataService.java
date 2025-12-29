@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.function.Function;
 
 import static br.com.gabryel.maplewood.model.db.enums.CourseHistoryStatus.PASSED;
@@ -28,21 +27,21 @@ public class StudentDataService {
         var courseHistories = studentCourseHistoryRepository.findByStudentIn(activeStudents);
 
         var studentsById = activeStudents.stream().collect(toMap(Student::getId, Function.identity()));
+        var historyByStudentId = courseHistories.stream()
+            .collect(groupingBy(history -> history.getStudent().getId()));
 
-        return courseHistories.stream()
-            .collect(groupingBy(history -> history.getStudent().getId()))
-            .entrySet().stream()
-            .collect(toMap(Entry::getKey, courseStatus -> getStudentData(courseStatus, studentsById)));
+        return studentsById.keySet().stream().collect(toMap(
+            Function.identity(),
+            id -> getStudentData(historyByStudentId.getOrDefault(id, List.of()), studentsById.get(id))
+        ));
     }
 
-    private static StudentData getStudentData(Entry<Integer, List<StudentCourseHistory>> courseStatus, Map<Integer, Student> studentsById) {
-        var studentId = courseStatus.getKey();
-        var student = studentsById.get(studentId);
-        var courseHistory = courseStatus.getValue().stream()
+    private static StudentData getStudentData(List<StudentCourseHistory> courseStatus, Student student) {
+        var courseHistory = courseStatus.stream()
             .filter(courseHistoryStatus -> courseHistoryStatus.getStatus() == PASSED)
             .map(history -> history.getCourse().getId())
             .toList();
 
-        return new StudentData(studentId, student.getGradeLevel(), courseHistory);
+        return new StudentData(student.getId(), student.getGradeLevel(), courseHistory);
     }
 }

@@ -1,4 +1,4 @@
-package br.com.gabryel.maplewood.service.scheduler;
+package br.com.gabryel.maplewood.service.scheduler.data;
 
 import br.com.gabryel.maplewood.model.db.Classroom;
 import br.com.gabryel.maplewood.model.db.Specialization;

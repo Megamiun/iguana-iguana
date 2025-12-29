@@ -1,11 +1,11 @@
-package br.com.gabryel.maplewood.service.scheduler;
+package br.com.gabryel.maplewood.service.scheduler.algorithm;
 
 import br.com.gabryel.maplewood.model.Weekday;
 import br.com.gabryel.maplewood.model.dto.ClassroomData;
 import br.com.gabryel.maplewood.model.dto.CourseData;
 import br.com.gabryel.maplewood.model.dto.StudentData;
 import br.com.gabryel.maplewood.model.dto.TeacherData;
-import br.com.gabryel.maplewood.service.scheduler.ScheduleCalculator.CourseSectionInternal;
+import br.com.gabryel.maplewood.service.scheduler.ScheduleCalculator.SchedulerCourseSection;
 import br.com.gabryel.maplewood.service.scheduler.ScheduleCalculator.TimeSlot;
 
 import java.util.Arrays;
@@ -23,7 +23,7 @@ import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
-class ScheduleState {
+public class SchedulingContext {
     private final Map<Integer, Map<TimeSlot, CourseData>> teacherSchedules = new HashMap<>();
     private final Map<Integer, Map<TimeSlot, CourseData>> classroomSchedules = new HashMap<>();
     private final Map<Integer, Map<TimeSlot, CourseData>> studentSchedules = new HashMap<>();
@@ -33,13 +33,13 @@ class ScheduleState {
     private final Map<Integer, List<TeacherData>> specializationToTeachers;
     private final Map<Integer, List<ClassroomData>> specializationToClassrooms;
 
-    ScheduleState(
+    public SchedulingContext(
         Map<Integer, TeacherData> teachers,
         Map<Integer, ClassroomData> classrooms,
         List<Integer> workHours
     ) {
         this.teacherRemainingDailyHours = teachers.values().stream()
-            .collect(toMap(TeacherData::id, ScheduleState::generateHoursMap));
+            .collect(toMap(TeacherData::id, SchedulingContext::generateHoursMap));
         this.availableTimeSlots = Arrays.stream(Weekday.values()).flatMap(weekDay ->
             workHours.stream().map(hour -> new TimeSlot(weekDay, hour))
         ).toList();;
@@ -55,100 +55,100 @@ class ScheduleState {
             .collect(groupingBy(Entry::getKey, HashMap::new, mapping(Entry::getValue, toList())));
     }
 
-    public void updateSchedules(CourseSectionInternal section) {
+    public void updateSchedules(SchedulerCourseSection section) {
         var timeSlots = section.timeSlots();
+        var teacher = section.teacher();
         var course = section.course();
-
-        var teacherId = section.teacher().id();
 
         // Updating schedules
         updateSchedule(classroomSchedules, section.classroom().id(), course, timeSlots);
-        updateSchedule(teacherSchedules, teacherId, course, timeSlots);
+        updateSchedule(teacherSchedules, teacher.id(), course, timeSlots);
 
         for (var student : section.students()) {
             updateSchedule(studentSchedules, student.id(), course, timeSlots);
         }
 
         // Update remaining hours
-        var teacherRemainingHours = teacherRemainingDailyHours.get(teacherId);
+        var teacherRemainingHours = teacherRemainingDailyHours.get(teacher.id());
         for (var weekdaySlots : timeSlots.stream().collect(groupingBy(TimeSlot::weekday)).entrySet()) {
             updateHours(teacherRemainingHours, weekdaySlots.getKey(), weekdaySlots.getValue().size());
 
             if (teacherRemainingHours.get(weekdaySlots.getKey()) == 0) {
-                blockTeacherDay(teacherId, weekdaySlots.getKey());
+                blockTeacherDay(teacher, weekdaySlots.getKey());
             }
         }
     }
 
-    Map<TimeSlot, CourseData> getTeacherSchedule(int id) {
-        return teacherSchedules.computeIfAbsent(id, key -> new HashMap<>());
+    public Map<TimeSlot, CourseData> getTeacherSchedule(TeacherData data) {
+        return teacherSchedules.computeIfAbsent(data.id(), key -> new HashMap<>());
     }
 
-    Map<TimeSlot, CourseData> getClassroomSchedule(int id) {
-        return classroomSchedules.computeIfAbsent(id, key -> new HashMap<>());
+    public Map<TimeSlot, CourseData> getClassroomSchedule(ClassroomData data) {
+        return classroomSchedules.computeIfAbsent(data.id(), key -> new HashMap<>());
     }
 
-    Map<TimeSlot, CourseData> getStudentSchedule(int id) {
-        return studentSchedules.computeIfAbsent(id, key -> new HashMap<>());
+    public Map<TimeSlot, CourseData> getStudentSchedule(StudentData data) {
+        return studentSchedules.computeIfAbsent(data.id(), key -> new HashMap<>());
     }
 
-    boolean studentIsFreeAt(int id, List<TimeSlot> timeSlots) {
-        return containsNone(studentSchedules, id, timeSlots);
+    public boolean studentIsFreeAt(StudentData data, List<TimeSlot> timeSlots) {
+        var keys = getStudentSchedule(data).keySet();
+        return timeSlots.stream().noneMatch(keys::contains);
     }
 
-    boolean teacherIsFreeAt(int id, TimeSlot timeSlot) {
-        return !getTeacherSchedule(id).containsKey(timeSlot);
+    public boolean teacherIsFreeAt(TeacherData data, TimeSlot timeSlot) {
+        return !getTeacherSchedule(data).containsKey(timeSlot);
     }
 
-    boolean classroomIsFreeAt(int id, TimeSlot timeSlot) {
-        return !getClassroomSchedule(id).containsKey(timeSlot);
+    public boolean classroomIsFreeAt(ClassroomData data, TimeSlot timeSlot) {
+        return !getClassroomSchedule(data).containsKey(timeSlot);
     }
 
-    boolean studentIsFreeAt(int id, TimeSlot timeSlot) {
-        return !getStudentSchedule(id).containsKey(timeSlot);
+    public boolean studentIsFreeAt(StudentData data, TimeSlot timeSlot) {
+        return !getStudentSchedule(data).containsKey(timeSlot);
     }
 
-    int getRemainingTeacherHours(TeacherData data) {
+    public int getRemainingTeacherHours(TeacherData data) {
         return teacherRemainingDailyHours.get(data.id()).values().stream().mapToInt(hours -> hours).sum();
     }
 
-    int getRemainingClassroomHours(ClassroomData data) {
-        var spentHours = getClassroomSchedule(data.id()).size();
+    public int getRemainingClassroomHours(ClassroomData data) {
+        var spentHours = getClassroomSchedule(data).size();
         return availableTimeSlots.size() - spentHours;
     }
 
-    int getRemainingStudentHours(StudentData data) {
-        var spentHours = getStudentSchedule(data.id()).size();
+    public int getRemainingStudentHours(StudentData data) {
+        var spentHours = getStudentSchedule(data).size();
         return availableTimeSlots.size() - spentHours;
     }
 
-    List<TimeSlot> getAvailableTimeSlots() {
+    public List<TimeSlot> getAvailableTimeSlots() {
         return availableTimeSlots;
     }
 
-    List<TeacherData> getTeachersFor(CourseData course) {
+    public List<TeacherData> getTeachersFor(CourseData course) {
         return specializationToTeachers.get(course.specializationId()).stream()
             .filter(teacher -> getRemainingTeacherHours(teacher) >= course.hoursPerWeek())
             .sorted(comparing(this::getRemainingTeacherHours).reversed())
             .toList();
     }
 
-    List<ClassroomData> getClassroomsFor(CourseData course) {
+    public List<ClassroomData> getClassroomsFor(CourseData course) {
         return specializationToClassrooms.get(course.specializationId()).stream()
             .filter(classroom -> getRemainingClassroomHours(classroom) >= course.hoursPerWeek())
             .sorted(comparing(this::getRemainingClassroomHours).reversed())
             .toList();
     }
 
-    boolean teacherCanTeachAt(int teacherId, List<TimeSlot> slots) {
-        var remainingHours = teacherRemainingDailyHours.get(teacherId);
+    public boolean teacherCanTeachAt(TeacherData data, List<TimeSlot> slots) {
+        var remainingHours = teacherRemainingDailyHours.get(data.id());
         var hoursByDay = slots.stream().collect(groupingBy(TimeSlot::weekday, counting()));
         return hoursByDay.entrySet().stream()
             .allMatch(entry -> remainingHours.get(entry.getKey()) >= entry.getValue());
     }
 
-    private void blockTeacherDay(int teacherId, Weekday day) {
-        var teacherSchedule = getTeacherSchedule(teacherId);
+    private void blockTeacherDay(TeacherData teacher, Weekday day) {
+        var teacherSchedule = getTeacherSchedule(teacher);
 
         availableTimeSlots.stream()
             .filter(slot -> slot.weekday() == day && !teacherSchedule.containsKey(slot))
@@ -165,12 +165,6 @@ class ScheduleState {
             schedule.put(timeSlot, course);
         }
     }
-
-    private boolean containsNone(Map<Integer, Map<TimeSlot, CourseData>> schedules, int id, List<TimeSlot> timeSlots) {
-        var keys = schedules.computeIfAbsent(id, key -> new HashMap<>()).keySet();
-        return timeSlots.stream().noneMatch(keys::contains);
-    }
-
     private static Map<Weekday, Integer> generateHoursMap(TeacherData teacher) {
         return Arrays.stream(Weekday.values()).collect(toMap(identity(), day -> teacher.maxDailyHours()));
     }

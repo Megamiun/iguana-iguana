@@ -1,4 +1,4 @@
-package br.com.gabryel.maplewood.service.scheduler;
+package br.com.gabryel.maplewood.service.scheduler.persistence;
 
 import br.com.gabryel.maplewood.exception.ScheduleAlreadyExistsException;
 import br.com.gabryel.maplewood.exception.SemesterNotFoundException;
@@ -21,6 +21,10 @@ import br.com.gabryel.maplewood.repository.CourseSectionRepository;
 import br.com.gabryel.maplewood.repository.CourseSectionStudentRepository;
 import br.com.gabryel.maplewood.repository.CourseSectionTimeSlotRepository;
 import br.com.gabryel.maplewood.repository.SemesterRepository;
+import br.com.gabryel.maplewood.service.scheduler.data.ClassroomDataService;
+import br.com.gabryel.maplewood.service.scheduler.data.CourseDataService;
+import br.com.gabryel.maplewood.service.scheduler.data.StudentDataService;
+import br.com.gabryel.maplewood.service.scheduler.data.TeacherDataService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

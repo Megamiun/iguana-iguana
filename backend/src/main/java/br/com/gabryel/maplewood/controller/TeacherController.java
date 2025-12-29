@@ -25,9 +25,9 @@ public class TeacherController implements TeachersApi {
     }
 
     @Override
-    public ResponseEntity<TeacherScheduleResponse> getTeacherSchedule(Integer id, Integer year, SemesterSeason semesterType) {
+    public ResponseEntity<TeacherScheduleResponse> getTeacherSchedule(Integer teacherId, Integer year, SemesterSeason semesterType) {
         var semesterCore = SemesterType.valueOf(semesterType.name());
-        return ResponseEntity.ok(teacherService.getTeacherSchedule(id, year, semesterCore));
+        return ResponseEntity.ok(teacherService.getTeacherSchedule(teacherId, year, semesterCore));
     }
 
     private TeacherPageResponse toResponse(Page<TeacherResponse> page) {

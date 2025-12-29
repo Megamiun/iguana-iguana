@@ -16,7 +16,7 @@ import br.com.gabryel.maplewood.model.dto.CourseData;
 import br.com.gabryel.maplewood.model.dto.CourseSectionDto;
 import br.com.gabryel.maplewood.model.dto.StudentData;
 import br.com.gabryel.maplewood.model.dto.TeacherData;
-import br.com.gabryel.maplewood.model.dto.TimeRange;
+import br.com.gabryel.maplewood.model.dto.WeekdayTimeRange;
 import br.com.gabryel.maplewood.repository.CourseSectionRepository;
 import br.com.gabryel.maplewood.repository.CourseSectionStudentRepository;
 import br.com.gabryel.maplewood.repository.CourseSectionTimeSlotRepository;
@@ -127,7 +127,7 @@ public class ScheduleDataService {
         var enrollments = courseSectionStudentRepository.findByCourseSectionId(section.getId());
 
         var timeRanges = timeSlots.stream()
-            .map(slot -> new TimeRange(slot.getWeekday(), slot.getStartHour(), slot.getEndHour()))
+            .map(slot -> new WeekdayTimeRange(slot.getWeekday(), slot.getStartHour(), slot.getEndHour()))
             .toList();
 
         var sectionStudents = enrollments.stream()

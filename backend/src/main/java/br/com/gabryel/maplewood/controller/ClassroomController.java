@@ -25,9 +25,9 @@ public class ClassroomController implements ClassroomsApi {
     }
 
     @Override
-    public ResponseEntity<ClassroomScheduleResponse> getClassroomSchedule(Integer id, Integer year, SemesterSeason semesterType) {
+    public ResponseEntity<ClassroomScheduleResponse> getClassroomSchedule(Integer classroomId, Integer year, SemesterSeason semesterType) {
         var semesterCore = SemesterType.valueOf(semesterType.name());
-        return ResponseEntity.ok(classroomService.getClassroomSchedule(id, year, semesterCore));
+        return ResponseEntity.ok(classroomService.getClassroomSchedule(classroomId, year, semesterCore));
     }
 
     private ClassroomPageResponse toResponse(Page<ClassroomResponse> page) {

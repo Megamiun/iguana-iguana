@@ -1,11 +1,12 @@
 import {PageResponse, Semester, SemesterResponse} from "../types/semester";
 import {
+    AvailableCourseSectionResponse,
     ClassroomScheduleResponse,
     ScheduleResponse,
     StudentScheduleResponse,
     TeacherScheduleResponse
 } from "../types/schedule";
-import {ClassroomResponse, StudentResponse, TeacherResponse} from "../types/base";
+import {ClassroomResponse, Result, StudentResponse, TeacherResponse} from "../types/base";
 
 const API_BASE_URL = import.meta.env.VITE_MAPLEWOOD_BASE_URL || "/api";
 
@@ -74,6 +75,32 @@ export const getStudentSchedule = async (id: number, year: number, semester: Sem
     }
 
     return await response.json();
+};
+
+export const getAvailableCourses = async (id: number, year: number, semester: Semester): Promise<PageResponse<AvailableCourseSectionResponse>> => {
+    const response = await fetch(`${API_BASE_URL}/students/${id}/enrollable/${year}/${semester}`);
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch available courses: ${response.statusText}`);
+    }
+
+    return await response.json();
+};
+
+export const enrollStudent = async (id: number, sectionId: number): Promise<Result> => {
+    const response = await fetch(`${API_BASE_URL}/students/${id}/enrollment/${sectionId}`, {
+        method: 'POST'
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        return {
+            success: false,
+            message: errorData.message || 'Enrollment failed'
+        };
+    }
+
+    return { success: true }
 };
 
 // Teachers

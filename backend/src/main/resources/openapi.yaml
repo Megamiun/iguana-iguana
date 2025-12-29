@@ -149,14 +149,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/StudentPageResponse'
 
-  /students/{id}/schedule/{year}/{semester}:
+  /students/{studentId}/schedule/{year}/{semester}:
     get:
       tags:
         - students
       summary: Get student schedule
       operationId: getStudentSchedule
       parameters:
-        - name: id
+        - name: studentId
           in: path
           required: true
           schema:
@@ -180,6 +180,76 @@ paths:
                 $ref: '#/components/schemas/StudentScheduleResponse'
         '404':
           description: Student or schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /students/{studentId}/enrollable/{year}/{semester}:
+    get:
+      tags:
+        - students
+      summary: Get available course sections for student
+      description: Returns courses that student is eligible to enroll
+      operationId: getEligibleCourses
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: semester
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/SemesterSeason'
+      responses:
+        '200':
+          description: Available courses retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EligiblePageResponse'
+        '404':
+          description: Student or semester not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /students/{studentId}/enrollment/{sectionId}:
+    post:
+      tags:
+        - students
+      summary: Enroll student in a course section
+      operationId: enrollStudent
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Student enrolled successfully
+        '400':
+          description: Enrollment failed (time conflict, no spots, missing prerequisites, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Student or section not found
           content:
             application/json:
               schema:
@@ -210,14 +280,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/TeacherPageResponse'
 
-  /teachers/{id}/schedule/{year}/{semester}:
+  /teachers/{teacherId}/schedule/{year}/{semester}:
     get:
       tags:
         - teachers
       summary: Get teacher schedule
       operationId: getTeacherSchedule
       parameters:
-        - name: id
+        - name: teacherId
           in: path
           required: true
           schema:
@@ -271,14 +341,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ClassroomPageResponse'
 
-  /classrooms/{id}/schedule/{year}/{semester}:
+  /classrooms/{classroomId}/schedule/{year}/{semester}:
     get:
       tags:
         - classrooms
       summary: Get classroom schedule
       operationId: getClassroomSchedule
       parameters:
-        - name: id
+        - name: classroomId
           in: path
           required: true
           schema:
@@ -354,6 +424,16 @@ components:
       enum:
         - CORE
         - ELECTIVE
+
+    UnavailabilityReason:
+      type: string
+      enum:
+        - NO_SPOTS
+        - TIME_CONFLICT
+        - ALREADY_ENROLLED
+        - PREREQUISITE_NOT_MET
+        - GRADE_LEVEL_REQUIREMENT
+        - MAX_ENROLLMENTS_REACHED
 
     ErrorResponse:
       type: object
@@ -492,6 +572,7 @@ components:
         - id
         - firstName
         - lastName
+        - fullName
         - email
         - gradeLevel
         - enrollmentYear
@@ -503,6 +584,8 @@ components:
         firstName:
           type: string
         lastName:
+          type: string
+        fullName:
           type: string
         email:
           type: string
@@ -537,6 +620,7 @@ components:
         - id
         - firstName
         - lastName
+        - fullName
         - email
         - maxDailyHours
       properties:
@@ -545,6 +629,8 @@ components:
         firstName:
           type: string
         lastName:
+          type: string
+        fullName:
           type: string
         email:
           type: string
@@ -719,3 +805,56 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/CourseResponse'
+
+    EligiblePageResponse:
+      allOf:
+        - $ref: '#/components/schemas/PageResponse'
+        - type: object
+          properties:
+            content:
+              type: array
+              items:
+                $ref: '#/components/schemas/AvailableCourseSectionResponse'
+
+    AvailableCourseSectionResponse:
+      type: object
+      required:
+        - sectionId
+        - courseCode
+        - courseName
+        - section
+        - teacher
+        - classroom
+        - schedule
+        - availableSpots
+        - filledSpots
+        - available
+      properties:
+        sectionId:
+          type: integer
+        courseCode:
+          type: string
+        courseName:
+          type: string
+        courseDescription:
+          type: string
+        credits:
+          type: number
+        section:
+          type: integer
+        teacher:
+          type: string
+        classroom:
+          type: string
+        schedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleDurationResponse'
+        availableSpots:
+          type: integer
+        filledSpots:
+          type: integer
+        available:
+          type: boolean
+        unavailableReason:
+          $ref: '#/components/schemas/UnavailabilityReason'

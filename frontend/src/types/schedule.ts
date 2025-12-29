@@ -54,3 +54,28 @@ export interface ClassroomScheduleResponse {
     classroomName: string,
     timeSlots: TimeSlot[]
 }
+
+export enum UnavailabilityReason {
+    NO_SPOTS = 'NO_SPOTS',
+    TIME_CONFLICT = 'TIME_CONFLICT',
+    ALREADY_ENROLLED = 'ALREADY_ENROLLED',
+    PREREQUISITE_NOT_MET = 'PREREQUISITE_NOT_MET',
+    GRADE_LEVEL_REQUIREMENT = 'GRADE_LEVEL_REQUIREMENT',
+    MAX_ENROLLMENTS_REACHED = 'MAX_ENROLLMENTS_REACHED'
+}
+
+export interface AvailableCourseSectionResponse {
+    sectionId: number,
+    courseCode: string,
+    courseName: string,
+    courseDescription?: string,
+    credits: number,
+    section: number,
+    teacher: string,
+    classroom: string,
+    schedule: ScheduleDurationResponse[],
+    availableSpots: number,
+    filledSpots: number,
+    available: boolean,
+    unavailableReason?: UnavailabilityReason
+}

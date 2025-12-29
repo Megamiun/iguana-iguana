@@ -9,7 +9,7 @@ import br.com.gabryel.maplewood.model.dto.CourseData;
 import br.com.gabryel.maplewood.model.dto.CourseSectionDto;
 import br.com.gabryel.maplewood.model.dto.StudentData;
 import br.com.gabryel.maplewood.model.dto.TeacherData;
-import br.com.gabryel.maplewood.model.dto.TimeRange;
+import br.com.gabryel.maplewood.model.dto.WeekdayTimeRange;
 import br.com.gabryel.maplewood.service.scheduler.algorithm.CoreScheduler;
 import br.com.gabryel.maplewood.service.scheduler.algorithm.ElectiveScheduler;
 import br.com.gabryel.maplewood.service.scheduler.algorithm.SchedulingContext;
@@ -136,28 +136,28 @@ public class ScheduleCalculator {
             .toList();
     }
 
-    private List<TimeRange> mergeConsecutive(List<TimeSlot> timeSlots) {
+    private List<WeekdayTimeRange> mergeConsecutive(List<TimeSlot> timeSlots) {
         var slotsByDay = timeSlots.stream().collect(groupingBy(TimeSlot::weekday, toList()));
 
         return slotsByDay.entrySet().stream()
             .flatMap(entry -> mergeConsecutive(entry.getKey(), entry.getValue()).stream())
-            .sorted(comparing(TimeRange::weekday).thenComparing(TimeRange::start))
+            .sorted(comparing(WeekdayTimeRange::weekday).thenComparing(WeekdayTimeRange::start))
             .toList();
     }
 
-    private List<TimeRange> mergeConsecutive(Weekday weekday, List<TimeSlot> slots) {
+    private List<WeekdayTimeRange> mergeConsecutive(Weekday weekday, List<TimeSlot> slots) {
         if (slots.isEmpty()) return List.of();
 
-        var merged = new ArrayList<TimeRange>();
+        var merged = new ArrayList<WeekdayTimeRange>();
         var sortedSlots = slots.stream().sorted(comparing(TimeSlot::slot)).toList();
 
         for (var current : sortedSlots) {
             var currentSlot = current.slot();
             if (!merged.isEmpty() && currentSlot <= merged.getLast().end()) {
                 var previous = merged.getLast();
-                merged.set(merged.size() - 1, new TimeRange(weekday, previous.start(), currentSlot + 1));
+                merged.set(merged.size() - 1, new WeekdayTimeRange(weekday, previous.start(), currentSlot + 1));
             } else {
-                merged.add(new TimeRange(weekday, currentSlot, currentSlot + 1));
+                merged.add(new WeekdayTimeRange(weekday, currentSlot, currentSlot + 1));
             }
         }
 

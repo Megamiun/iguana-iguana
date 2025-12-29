@@ -11,7 +11,7 @@ import br.com.gabryel.maplewood.exception.ScheduleNotFoundException;
 import br.com.gabryel.maplewood.exception.SemesterNotFoundException;
 import br.com.gabryel.maplewood.model.SemesterType;
 import br.com.gabryel.maplewood.model.dto.CourseSectionDto;
-import br.com.gabryel.maplewood.model.dto.TimeRange;
+import br.com.gabryel.maplewood.model.dto.WeekdayTimeRange;
 import br.com.gabryel.maplewood.repository.SemesterRepository;
 import br.com.gabryel.maplewood.service.scheduler.data.ClassroomDataService;
 import br.com.gabryel.maplewood.service.scheduler.data.CourseDataService;
@@ -105,7 +105,7 @@ public class Scheduler {
             .filledSpots(section.students().size());
     }
 
-    private ScheduleDurationResponse toResponse(TimeRange range) {
+    private ScheduleDurationResponse toResponse(WeekdayTimeRange range) {
         return new ScheduleDurationResponse()
             .weekday(Weekday.valueOf(range.weekday().name()))
             .start(range.start())

@@ -17,6 +17,8 @@ server:
 
 # For simplicity’s sake, only discrete intervals of hours will be used.
 maplewood:
+  enrollment:
+    max-per-semester: 5
   scheduling:
     time:
       available:
@@ -27,5 +29,5 @@ maplewood:
       max-consecutive-class-hours: 2
     algorithm:
       core:
-        max-slack: 1
+        max-slack: 2
         max-combinations: 20

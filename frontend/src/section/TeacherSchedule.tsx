@@ -47,10 +47,7 @@ export default () => {
                         >
                             {teachers.map(teacher => (
                                 <MenuItem key={teacher.id} value={teacher.id}>
-                                    {
-                                        // TODO Return formatted from API too
-                                        teacher.firstName + " " + teacher.lastName
-                                    }
+                                    {teacher.fullName}
                                 </MenuItem>
                             ))}
                         </Select>

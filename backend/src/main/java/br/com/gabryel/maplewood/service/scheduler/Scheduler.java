@@ -16,11 +16,9 @@ import br.com.gabryel.maplewood.service.scheduler.data.ClassroomDataService;
 import br.com.gabryel.maplewood.service.scheduler.data.CourseDataService;
 import br.com.gabryel.maplewood.service.scheduler.data.StudentDataService;
 import br.com.gabryel.maplewood.service.scheduler.data.TeacherDataService;
-import br.com.gabryel.maplewood.service.scheduler.persistence.SchedulePersistenceService;
+import br.com.gabryel.maplewood.service.scheduler.data.ScheduleDataService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 import static br.com.gabryel.maplewood.model.SemesterType.FALL;
 
@@ -32,14 +30,15 @@ public class Scheduler {
     private final StudentDataService studentDataService;
     private final TeacherDataService teacherDataService;
     private final ClassroomDataService classroomDataService;
+    private final ScheduleDataService scheduleService;
+
     private final TimeSchedulingConfig timeSchedulingConfig;
-    private final SchedulePersistenceService persistenceService;
 
     public ScheduleResponse loadSchedule(SemesterType semesterType, int year) {
         var semester = semesterRepository.findByYearAndOrderInYear(year, getOrderInYear(semesterType))
             .orElseThrow(() -> new SemesterNotFoundException(year, semesterType.name()));
 
-        var sections = persistenceService.findSchedule(semester.getId());
+        var sections = scheduleService.findSchedule(semester.getId());
 
         if (sections.isEmpty()) {
             throw new ScheduleNotFoundException(year, semesterType.name());
@@ -55,18 +54,18 @@ public class Scheduler {
         var semester = semesterRepository.findByYearAndOrderInYear(year, getOrderInYear(semesterType))
             .orElseThrow(() -> new SemesterNotFoundException(year, semesterType.name()));
 
-        if (!persistenceService.hasSchedule(semester.getId())) {
+        if (!scheduleService.hasSchedule(semester.getId())) {
             throw new ScheduleNotFoundException(year, semesterType.name());
         }
 
-        persistenceService.deleteSchedule(semester.getId());
+        scheduleService.deleteSchedule(semester.getId());
     }
 
     public ScheduleResponse generateSchedule(SemesterType semesterType, int year) {
         var semester = semesterRepository.findByYearAndOrderInYear(year, getOrderInYear(semesterType))
             .orElseThrow(() -> new SemesterNotFoundException(year, semesterType.name()));
 
-        if (persistenceService.hasSchedule(semester.getId())) {
+        if (scheduleService.hasSchedule(semester.getId())) {
             throw new ScheduleAlreadyExistsException(semesterType, year);
         }
 
@@ -79,7 +78,7 @@ public class Scheduler {
         var calculator = new ScheduleCalculator(timeSchedulingConfig);
         var sections = calculator.generateSchedule(courses, students, teachers, classrooms);
 
-        persistenceService.persistSchedule(semester.getId(), sections);
+        scheduleService.persistSchedule(semester.getId(), sections);
 
         var coursesResponse = sections.stream().map(this::toResponse).toList();
         return new ScheduleResponse().courses(coursesResponse);

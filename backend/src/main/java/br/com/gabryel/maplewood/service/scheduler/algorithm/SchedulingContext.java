@@ -7,7 +7,9 @@ import br.com.gabryel.maplewood.model.dto.StudentData;
 import br.com.gabryel.maplewood.model.dto.TeacherData;
 import br.com.gabryel.maplewood.service.scheduler.ScheduleCalculator.SchedulerCourseSection;
 import br.com.gabryel.maplewood.service.scheduler.ScheduleCalculator.TimeSlot;
+import lombok.Getter;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -27,8 +29,15 @@ public class SchedulingContext {
     private final Map<Integer, Map<TimeSlot, CourseData>> teacherSchedules = new HashMap<>();
     private final Map<Integer, Map<TimeSlot, CourseData>> classroomSchedules = new HashMap<>();
     private final Map<Integer, Map<TimeSlot, CourseData>> studentSchedules = new HashMap<>();
-    private final Map<Integer, Map<Weekday, Integer>> teacherRemainingDailyHours;
+    private final Map<Integer, Integer> courseIdToSectionNum = new HashMap<>();
+
+    @Getter
+    private final List<SchedulerCourseSection> sections = new ArrayList<>();
+
+    @Getter
     private final List<TimeSlot> availableTimeSlots;
+
+    private final Map<Integer, Map<Weekday, Integer>> teacherRemainingDailyHours;
 
     private final Map<Integer, List<TeacherData>> specializationToTeachers;
     private final Map<Integer, List<ClassroomData>> specializationToClassrooms;
@@ -59,6 +68,9 @@ public class SchedulingContext {
         var timeSlots = section.timeSlots();
         var teacher = section.teacher();
         var course = section.course();
+
+        sections.add(section);
+        courseIdToSectionNum.put(course.id(), section.section());
 
         // Updating schedules
         updateSchedule(classroomSchedules, section.classroom().id(), course, timeSlots);
@@ -122,8 +134,8 @@ public class SchedulingContext {
         return availableTimeSlots.size() - spentHours;
     }
 
-    public List<TimeSlot> getAvailableTimeSlots() {
-        return availableTimeSlots;
+    public Integer getNextSectionNum(CourseData course) {
+        return courseIdToSectionNum.getOrDefault(course.id(), 0) + 1;
     }
 
     public List<TeacherData> getTeachersFor(CourseData course) {

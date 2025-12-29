@@ -1,8 +1,10 @@
 package br.com.gabryel.maplewood.service.scheduler.algorithm;
 
 import br.com.gabryel.maplewood.config.TimeSchedulingConfig;
+import br.com.gabryel.maplewood.model.Weekday;
 import br.com.gabryel.maplewood.service.scheduler.ScheduleCalculator.TimeSlot;
 
+import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -13,14 +15,26 @@ public class SlotCombinator {
         this.timeConfig = timeConfig;
     }
 
+    public Stream<Stream<TimeSlot>> getKCombinations(List<TimeSlot> matchingSlots, int size, int maxInDay) {
+        return getKCombinations(
+            matchingSlots,
+            size,
+            matchingSlots.size() - 1,
+            null,
+            0,
+            null,
+            0,
+            maxInDay
+        );
+    }
 
-    public Stream<Stream<TimeSlot>> getKCombinations(
-        java.util.List<TimeSlot> matchingSlots,
+    private Stream<Stream<TimeSlot>> getKCombinations(
+        List<TimeSlot> matchingSlots,
         int size,
         int index,
-        int consecutiveCounter,
         TimeSlot lastSelected,
-        br.com.gabryel.maplewood.model.Weekday lastDay,
+        int consecutiveCounter,
+        Weekday lastDay,
         int inLastDay,
         int maxInDay
     ) {
@@ -37,7 +51,7 @@ public class SlotCombinator {
         var inCurrentDay = currentDay == lastDay ? inLastDay + 1 : 1;
 
         if (currentConsecutiveCounter > timeConfig.getMaxConsecutiveClassHours() || inCurrentDay > maxInDay)
-            return getKCombinations(matchingSlots, size, index - 1, currentConsecutiveCounter, lastSelected, currentDay, inCurrentDay, maxInDay);
+            return getKCombinations(matchingSlots, size, index - 1, lastSelected, currentConsecutiveCounter, currentDay, inCurrentDay, maxInDay);
 
         if (index == 0)
             return Stream.of(Stream.of(matchingSlots.getFirst()));
@@ -45,10 +59,10 @@ public class SlotCombinator {
         // Lazy concatenation using suppliers. Stream.concat eagerly loads
         return concatLazy(
             // Keeps current item
-            () -> getKCombinations(matchingSlots, size - 1, index - 1, currentConsecutiveCounter, timeSlot, currentDay, inCurrentDay, maxInDay)
+            () -> getKCombinations(matchingSlots, size - 1, index - 1, timeSlot, currentConsecutiveCounter, currentDay, inCurrentDay, maxInDay)
                 .map(next -> Stream.concat(Stream.of(timeSlot), next)),
             // Skip current item
-            () -> getKCombinations(matchingSlots, size, index - 1, currentConsecutiveCounter, lastSelected, currentDay, inCurrentDay, maxInDay));
+            () -> getKCombinations(matchingSlots, size, index - 1, lastSelected, currentConsecutiveCounter, currentDay, inCurrentDay, maxInDay));
     }
 
     @SafeVarargs

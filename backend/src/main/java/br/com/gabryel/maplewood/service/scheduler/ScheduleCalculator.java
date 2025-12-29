@@ -2,6 +2,7 @@ package br.com.gabryel.maplewood.service.scheduler;
 
 import br.com.gabryel.maplewood.config.TimeSchedulingConfig;
 import br.com.gabryel.maplewood.model.Weekday;
+import br.com.gabryel.maplewood.model.db.enums.CourseType;
 import br.com.gabryel.maplewood.model.dto.ClassroomData;
 import br.com.gabryel.maplewood.model.dto.CourseData;
 import br.com.gabryel.maplewood.model.dto.CourseSectionDto;
@@ -12,14 +13,15 @@ import br.com.gabryel.maplewood.service.scheduler.algorithm.CoreScheduler;
 import br.com.gabryel.maplewood.service.scheduler.algorithm.ElectiveScheduler;
 import br.com.gabryel.maplewood.service.scheduler.algorithm.SchedulingContext;
 import br.com.gabryel.maplewood.service.scheduler.algorithm.SlotCombinator;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
+import java.util.function.BiPredicate;
 
 import static br.com.gabryel.maplewood.model.db.enums.CourseType.CORE;
 import static br.com.gabryel.maplewood.model.db.enums.CourseType.ELECTIVE;
@@ -30,10 +32,17 @@ import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
-@Slf4j
+@Service
 
 public class ScheduleCalculator {
-    public record CourseDemand(CourseData course, List<StudentData> students) { }
+
+    private final SlotCombinator combinator;
+    private final TimeSchedulingConfig timeConfig;
+
+    public record CourseDemand(
+        CourseData course,
+        List<StudentData> students
+    ) { }
 
     public record TimeSlot(Weekday weekday, int slot) implements Comparable<TimeSlot> {
         private static final Comparator<TimeSlot> COMPARATOR =
@@ -55,43 +64,63 @@ public class ScheduleCalculator {
         List<StudentData> students
     ) { }
 
-    private final Map<Integer, CourseData> courses;
-    private final CoreScheduler coreScheduler;
-    private final ElectiveScheduler electiveScheduler;
+    public ScheduleCalculator(TimeSchedulingConfig timeConfig) {
+        this.timeConfig = timeConfig;
+        this.combinator = new SlotCombinator(timeConfig);
+    }
 
-    public ScheduleCalculator(
-        TimeSchedulingConfig timeConfig,
-        Map<Integer, CourseData> courses,
-        Map<Integer, StudentData> students,
-        Map<Integer, TeacherData> teachers,
-        Map<Integer, ClassroomData> classrooms
-    ) {
-        this.courses = courses;
-
+    public List<CourseSectionDto> generateSchedule(Map<Integer, CourseData> courses, Map<Integer, StudentData> students, Map<Integer, TeacherData> teachers, Map<Integer, ClassroomData> classrooms) {
         var context = new SchedulingContext(teachers, classrooms, timeConfig.getSlots());
-        var combinator = new SlotCombinator(timeConfig);
 
-        var courseDemands = createCourseDemands(students, getCoreCourses());
+        var coreScheduler = new CoreScheduler(context, combinator);
+        var electiveScheduler = new ElectiveScheduler(context, combinator);
 
-        this.coreScheduler = new CoreScheduler(context, combinator, courseDemands);
-        this.electiveScheduler = new ElectiveScheduler(context, combinator);
+        coreScheduler.generateSchedule(getCriticalDemand(courses, students), true);
+        coreScheduler.generateSchedule(getSecondaryDemand(courses, students), false);
+        electiveScheduler.generateSchedule(getCourses(courses.values(), ELECTIVE));
+
+        return context.getSections().stream().map(this::toDto).toList();
     }
 
-    public List<CourseSectionDto> generateSchedule() {
-        var coreSections = coreScheduler.generateSchedule(0);
-        var electiveSections = electiveScheduler.generateSchedule(1, getElectiveCourses());
-        return Stream.concat(coreSections.stream(), electiveSections.stream()).map(this::toDto).toList();
+    private List<CourseDemand> getCriticalDemand(Map<Integer, CourseData> courses, Map<Integer, StudentData> students) {
+        return createCourseDemands(students, courses, (student, course) -> student.gradeLevel() == course.gradeLevelMax());
     }
 
-    private List<CourseData> getCoreCourses() {
-        return courses.values().stream()
-            .filter(course -> course.courseType() == CORE)
+    private List<CourseDemand> getSecondaryDemand(Map<Integer, CourseData> courses, Map<Integer, StudentData> students) {
+        return createCourseDemands(students, courses, (student, course) -> student.gradeLevel() != course.gradeLevelMax());
+    }
+
+    private List<CourseDemand> createCourseDemands(
+        Map<Integer, StudentData> students,
+        Map<Integer, CourseData> courses,
+        BiPredicate<StudentData, CourseData> shouldSelect
+    ) {
+        var coreCourses = getCourses(courses.values(), CORE);
+        var passedCoursesCache = students.values().stream()
+            .collect(toMap(StudentData::id, student -> new HashSet<>(student.passedCourses())));
+
+        var courseToStudents = students.values().stream()
+            .flatMap(student -> {
+                var passedCourses = passedCoursesCache.get(student.id());
+                return coreCourses.stream()
+                    .filter(course -> !passedCourses.contains(course.id()))
+                    .filter(course -> course.prerequisite() == null || passedCourses.contains(course.prerequisite().id()))
+                    .filter(course -> course.gradeLevelMax() >= student.gradeLevel())
+                    .filter(course -> course.gradeLevelMin() <= student.gradeLevel())
+                    .filter(course -> shouldSelect.test(student, course))
+                    .map(course -> entry(course, student));
+            })
+            .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
+
+        return courseToStudents.entrySet().stream()
+            .map(e -> new CourseDemand(e.getKey(), e.getValue()))
+            .sorted(comparing(demand -> demand.students().stream().mapToDouble(StudentData::gradeLevel).average().orElse(0)))
             .toList();
     }
 
-    private List<CourseData> getElectiveCourses() {
-        return courses.values().stream()
-            .filter(course -> course.courseType() == ELECTIVE)
+    private List<CourseData> getCourses(Collection<CourseData> courses, CourseType courseType) {
+        return courses.stream()
+            .filter(course -> course.courseType() == courseType)
             .toList();
     }
 
@@ -130,27 +159,5 @@ public class ScheduleCalculator {
             courseSection.classroom(),
             courseSection.students
         );
-    }
-
-    public static List<CourseDemand> createCourseDemands(Map<Integer, StudentData> students, List<CourseData> coreCourses) {
-        var passedCoursesCache = students.values().stream()
-            .collect(toMap(StudentData::id, student -> new HashSet<>(student.passedCourses())));
-
-        var courseToStudents = students.values().stream()
-            .flatMap(student -> {
-                var passedCourses = passedCoursesCache.get(student.id());
-                return coreCourses.stream()
-                    .filter(course -> !passedCourses.contains(course.id()))
-                    .filter(course -> course.prerequisite() == null || passedCourses.contains(course.prerequisite().id()))
-                    .filter(course -> course.gradeLevelMin() <= student.gradeLevel())
-                    .filter(course -> course.gradeLevelMax() >= student.gradeLevel())
-                    .map(course -> entry(course, student));
-            })
-            .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
-
-        return courseToStudents.entrySet().stream()
-            .map(e -> new CourseDemand(e.getKey(), e.getValue()))
-            .sorted(comparing(demand -> demand.students().stream().mapToDouble(StudentData::gradeLevel).average().orElse(0)))
-            .toList();
     }
 }

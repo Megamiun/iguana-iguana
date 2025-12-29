@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static br.com.gabryel.maplewood.model.db.enums.CourseHistoryStatus.PASSED;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toMap;
 
@@ -26,12 +27,12 @@ public class StudentDataService {
         var activeStudents = studentRepository.findByStatus("active");
         var courseHistories = studentCourseHistoryRepository.findByStudentIn(activeStudents);
 
-        var studentsById = activeStudents.stream().collect(toMap(Student::getId, Function.identity()));
+        var studentsById = activeStudents.stream().collect(toMap(Student::getId, identity()));
         var historyByStudentId = courseHistories.stream()
             .collect(groupingBy(history -> history.getStudent().getId()));
 
         return studentsById.keySet().stream().collect(toMap(
-            Function.identity(),
+            identity(),
             id -> getStudentData(historyByStudentId.getOrDefault(id, List.of()), studentsById.get(id))
         ));
     }

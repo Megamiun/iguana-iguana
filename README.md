@@ -81,7 +81,7 @@ The frontend will start at `http://localhost:5173`
       - A backtracking algorithm with rollbacks maybe would be overkill for this scenario
       - For scenarios with less slack, a backtracking algorithm could also become too time-consuming due to combinatorial explosion
 </s>
-  - Post fix that ignored first graders:
+  - Post fix that ignored first-graders:
     - Extracted data from application:
       - Specialization 1:
         - Course Code: MAT101, Hours per week:6, Students Total: 117, Students Grade 9: 100, Students Grade 10: 17, Students Grade 11: 0, Students Grade 12: 0
@@ -129,7 +129,10 @@ The frontend will start at `http://localhost:5173`
         - Teacher Capacity: 120 hours/week (6 teachers)
         - Pressure Ratio: 1.00 (100%) ⚠️
         - Status: Exactly at capacity
-    - This considers that if a student has access to a course, he needs to take it ASAP
-      - This is not possible, as that would cause a shortage of teachers specialized on Math
+    - This means that it is impossible to allow all possible students to have access to their core courses.
+- Strategy for scheduling:
+  - Schedules all students on maximum grade level. If not possible, fails.
+  - Schedules all possible remaining students on best-effort basis. If not possible, logs warning, but continues.
+  - Schedules elective courses in a round-robin manner with no students. Will not force students into electives.
 - For simplicity's sake, no master Schedule object has been created
   - Although it could be useful in scenarios where drafts and reviews may be necessary, it would have been a completely out of scope choice for this MVP

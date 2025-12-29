@@ -76,8 +76,8 @@ public class Scheduler {
         var teachers = teacherDataService.getTeachers();
         var classrooms = classroomDataService.getClassrooms();
 
-        var calculator = new ScheduleCalculator(timeSchedulingConfig, courses, students, teachers, classrooms);
-        var sections = calculator.generateSchedule();
+        var calculator = new ScheduleCalculator(timeSchedulingConfig);
+        var sections = calculator.generateSchedule(courses, students, teachers, classrooms);
 
         persistenceService.persistSchedule(semester.getId(), sections);
 

@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -26,24 +27,18 @@ import static java.util.stream.Collectors.toSet;
 public class CoreScheduler {
 
     private final SchedulingContext scheduleState;
-    private final List<CourseDemand> courseDemands;
     private final SlotCombinator combinator;
 
-    public CoreScheduler(
-        SchedulingContext scheduleState,
-        SlotCombinator combinator,
-        List<CourseDemand> courseDemands
-    ) {
+    public CoreScheduler(SchedulingContext scheduleState, SlotCombinator combinator) {
         this.scheduleState = scheduleState;
-        this.courseDemands = courseDemands;
         this.combinator = combinator;
     }
 
-    public List<SchedulerCourseSection> generateSchedule(int courseDemandIndex) {
-        if (courseDemandIndex >= courseDemands.size())
-            return List.of();
+    public void generateSchedule(List<CourseDemand> demands, boolean failOnSectionNotCreatable) {
+        if (demands.isEmpty())
+            return;
 
-        var courseDemand = courseDemands.get(courseDemandIndex);
+        var courseDemand = demands.getFirst();
         var course = courseDemand.course();
 
         var students = courseDemand.students().stream()
@@ -52,66 +47,79 @@ public class CoreScheduler {
 
         var teachers = scheduleState.getTeachersFor(course);
         var classrooms = scheduleState.getClassroomsFor(course);
-        var sections = scheduleSections(course, teachers, classrooms, students, 1);
 
-        return Stream.concat(
-            sections.stream(),
-            generateSchedule(courseDemandIndex + 1).stream()
-        ).toList();
+        scheduleSections(course, teachers, classrooms, students, failOnSectionNotCreatable);
+
+        generateSchedule(demands.stream().skip(1).toList(), failOnSectionNotCreatable);
     }
 
-    private List<SchedulerCourseSection> scheduleSections(
+    private void scheduleSections(
         CourseData course,
         List<TeacherData> teachers,
         List<ClassroomData> classrooms,
         List<StudentData> students,
-        int sectionNum
+        boolean failOnSectionNotCreatable
     ) {
-        if (students.isEmpty())
-            return List.of();
+        if (students.isEmpty()) return;
 
         var teacherClassrooms = teachers.stream().flatMap(teacher ->
             classrooms.stream().map(classroom -> entry(teacher, classroom))
         ).toList();
 
-        var section = teacherClassrooms.stream()
-            .map(entry -> getMatchingSchedule(course, entry.getKey(), entry.getValue(), students, sectionNum))
-            .findFirst().orElseThrow(() -> new IllegalStateException("No arrangement found for course #" + course));
+        var sectionNum = scheduleState.getNextSectionNum(course);
 
+        var maybeSection = teacherClassrooms.stream()
+            .map(entry -> getMatchingSchedule(course, sectionNum, entry.getKey(), entry.getValue(), students))
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .findFirst();
+
+        if (maybeSection.isEmpty()) {
+            if (failOnSectionNotCreatable) {
+                throw new IllegalStateException("Couldn't generate Course #" + course.id() + " - Section #" + sectionNum + ". " + students.size() + " students remaining");
+            }
+
+            log.warn("Couldn't generate Course #{} - Section #{}. {} students remaining", course.id(), sectionNum, students.size());
+            return;
+        }
+
+        var section = maybeSection.get();
         scheduleState.updateSchedules(section);
 
-        var newAvailableClassrooms = classrooms.stream()
+        var reSortedClassrooms = classrooms.stream()
             .sorted(comparing(scheduleState::getRemainingClassroomHours).reversed())
             .toList();
 
-        var newAvailableTeachers = teachers.stream()
+        var reSortedTeachers = teachers.stream()
             .sorted(comparing(scheduleState::getRemainingTeacherHours).reversed())
             .toList();
 
         var sectionStudentSet = new HashSet<>(section.students());
-        var newAvailableStudents = students.stream()
+        var filteredStudents = students.stream()
             .filter(student -> !sectionStudentSet.contains(student))
             .toList();
 
-        return Stream.concat(
-            Stream.of(section),
-            scheduleSections(course, newAvailableTeachers, newAvailableClassrooms, newAvailableStudents, sectionNum + 1).stream()
-        ).toList();
+        scheduleSections(course, reSortedTeachers, reSortedClassrooms, filteredStudents, failOnSectionNotCreatable);
     }
 
-    private SchedulerCourseSection getMatchingSchedule(CourseData course, TeacherData teacher, ClassroomData classroom, List<StudentData> students, int sectionNum) {
-        var minimumAccepted = max(1, min(classroom.capacity(), students.size()) - 2);
+    private Optional<SchedulerCourseSection> getMatchingSchedule(
+        CourseData course,
+        int sectionNum,
+        TeacherData teacher,
+        ClassroomData classroom,
+        List<StudentData> students
+    ) {
+        var minimumAccepted = max(1, min(classroom.capacity(), students.size()) - 2);  // Best effort for optional
 
         var matchingSlots = findAvailableSlots(teacher, classroom, students, minimumAccepted);
 
-        return combinator.getKCombinations(matchingSlots, course.hoursPerWeek(), matchingSlots.size() - 1, 0, null, null, 0, 4)
+        return combinator.getKCombinations(matchingSlots, course.hoursPerWeek(), teacher.maxDailyHours())
             .map(Stream::toList)
             .filter(slots -> scheduleState.teacherCanTeachAt(teacher, slots))
             .map(slots -> generateSection(course, sectionNum, teacher, classroom, students, slots))
             .filter(section -> section.students().size() >= minimumAccepted)
             .limit(5)
-            .max(comparing(section -> section.students().size()))
-            .orElseThrow(() -> new IllegalStateException("No arrangement found for course #" + course));
+            .max(comparing(section -> section.students().size()));
     }
 
     private List<TimeSlot> findAvailableSlots(TeacherData teacher, ClassroomData classroom, List<StudentData> students, int minimumAccepted) {

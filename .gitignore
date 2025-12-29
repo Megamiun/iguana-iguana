@@ -4,6 +4,7 @@
 **/build/
 **/node_modules
 **/dist
+**/*.tsbuildinfo
 
 # Problem Definition
 definition/

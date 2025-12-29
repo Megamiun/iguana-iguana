@@ -70,17 +70,15 @@ The frontend will start at `http://localhost:5173`
   - Auditorium - None
 - Over calculations:
   - Teachers have 1000 hours free/week(4 daily hours x 5 weekdays x 50 teachers)
-  - Pre bug that ignored first graders:
-<s>
-    - Students are eligible for:
-      - CORE courses: ~61 sections -> 322 hours/week
-      - ELECTIVE courses: ~352 sections -> 1383 hours/week
-    - Thus, with only 33% of the full capacity for CORE courses, a greedy algorithm was chosen for simplicity
-      - Prioritize CORE courses first
-      - Electives will be created in a best-effort manner using round-robin
-      - A backtracking algorithm with rollbacks maybe would be overkill for this scenario
-      - For scenarios with less slack, a backtracking algorithm could also become too time-consuming due to combinatorial explosion
-</s>
+  - Pre bug that ignored first-graders:
+    - ~~Students are eligible for:~~
+       - ~~CORE courses: around 61 sections -> 322 hours/week~~
+       - ~~ELECTIVE courses: around 352 sections -> 1383 hours/week~~
+     - ~~Thus, with only 33% of the full capacity for CORE courses, a greedy algorithm was chosen for simplicity~~
+       - ~~Prioritize CORE courses first~~
+       - ~~Electives will be created in a best-effort manner using round-robin~~
+       - ~~A backtracking algorithm with rollbacks maybe would be overkill for this scenario~~
+       - ~~For scenarios with less slack, a backtracking algorithm could also become too time-consuming due to combinatorial explosion~~
   - Post fix that ignored first-graders:
     - Extracted data from application:
       - Specialization 1:

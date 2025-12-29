@@ -4,6 +4,7 @@ import br.com.gabryel.maplewood.api.model.CourseScheduleResponse;
 import br.com.gabryel.maplewood.api.model.ScheduleDurationResponse;
 import br.com.gabryel.maplewood.api.model.ScheduleResponse;
 import br.com.gabryel.maplewood.api.model.Weekday;
+import br.com.gabryel.maplewood.config.CoreSchedulingConfig;
 import br.com.gabryel.maplewood.config.TimeSchedulingConfig;
 import br.com.gabryel.maplewood.exception.ScheduleAlreadyExistsException;
 import br.com.gabryel.maplewood.exception.ScheduleNotFoundException;
@@ -33,6 +34,7 @@ public class Scheduler {
     private final ScheduleDataService scheduleService;
 
     private final TimeSchedulingConfig timeSchedulingConfig;
+    private final CoreSchedulingConfig coreSchedulingConfig;
 
     public ScheduleResponse loadSchedule(SemesterType semesterType, int year) {
         var semester = semesterRepository.findByYearAndOrderInYear(year, getOrderInYear(semesterType))
@@ -75,7 +77,7 @@ public class Scheduler {
         var teachers = teacherDataService.getTeachers();
         var classrooms = classroomDataService.getClassrooms();
 
-        var calculator = new ScheduleCalculator(timeSchedulingConfig);
+        var calculator = new ScheduleCalculator(timeSchedulingConfig, coreSchedulingConfig);
         var sections = calculator.generateSchedule(courses, students, teachers, classrooms);
 
         scheduleService.persistSchedule(semester.getId(), sections);

@@ -25,3 +25,7 @@ maplewood:
         - start: 13
           end: 17
       max-consecutive-class-hours: 2
+    algorithm:
+      core:
+        max-slack: 1
+        max-combinations: 20

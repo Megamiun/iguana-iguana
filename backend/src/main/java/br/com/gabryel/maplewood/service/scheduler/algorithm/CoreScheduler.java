@@ -1,5 +1,6 @@
 package br.com.gabryel.maplewood.service.scheduler.algorithm;
 
+import br.com.gabryel.maplewood.config.CoreSchedulingConfig;
 import br.com.gabryel.maplewood.model.dto.ClassroomData;
 import br.com.gabryel.maplewood.model.dto.CourseData;
 import br.com.gabryel.maplewood.model.dto.StudentData;
@@ -28,10 +29,16 @@ public class CoreScheduler {
 
     private final SchedulingContext scheduleState;
     private final SlotCombinator combinator;
+    private final CoreSchedulingConfig config;
 
-    public CoreScheduler(SchedulingContext scheduleState, SlotCombinator combinator) {
+    public CoreScheduler(
+        SchedulingContext scheduleState,
+        SlotCombinator combinator,
+        CoreSchedulingConfig config
+    ) {
         this.scheduleState = scheduleState;
         this.combinator = combinator;
+        this.config = config;
     }
 
     public void generateSchedule(List<CourseDemand> demands, boolean failOnSectionNotCreatable) {
@@ -109,7 +116,7 @@ public class CoreScheduler {
         ClassroomData classroom,
         List<StudentData> students
     ) {
-        var minimumAccepted = max(1, min(classroom.capacity(), students.size()) - 2);  // Best effort for optional
+        var minimumAccepted = max(1, min(classroom.capacity(), students.size()) - config.getMaxSlack());
 
         var matchingSlots = findAvailableSlots(teacher, classroom, students, minimumAccepted);
 
@@ -118,7 +125,7 @@ public class CoreScheduler {
             .filter(slots -> scheduleState.teacherCanTeachAt(teacher, slots))
             .map(slots -> generateSection(course, sectionNum, teacher, classroom, students, slots))
             .filter(section -> section.students().size() >= minimumAccepted)
-            .limit(5)
+            .limit(config.getMaxCombinations())
             .max(comparing(section -> section.students().size()));
     }
 

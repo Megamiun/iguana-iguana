@@ -1,5 +1,6 @@
 package br.com.gabryel.maplewood.service.scheduler;
 
+import br.com.gabryel.maplewood.config.CoreSchedulingConfig;
 import br.com.gabryel.maplewood.config.TimeSchedulingConfig;
 import br.com.gabryel.maplewood.model.Weekday;
 import br.com.gabryel.maplewood.model.db.enums.CourseType;
@@ -38,6 +39,7 @@ public class ScheduleCalculator {
 
     private final SlotCombinator combinator;
     private final TimeSchedulingConfig timeConfig;
+    private final CoreSchedulingConfig coreConfig;
 
     public record CourseDemand(
         CourseData course,
@@ -64,15 +66,19 @@ public class ScheduleCalculator {
         List<StudentData> students
     ) { }
 
-    public ScheduleCalculator(TimeSchedulingConfig timeConfig) {
+    public ScheduleCalculator(
+        TimeSchedulingConfig timeConfig,
+        CoreSchedulingConfig coreConfig
+    ) {
         this.timeConfig = timeConfig;
+        this.coreConfig = coreConfig;
         this.combinator = new SlotCombinator(timeConfig);
     }
 
     public List<CourseSectionDto> generateSchedule(Map<Integer, CourseData> courses, Map<Integer, StudentData> students, Map<Integer, TeacherData> teachers, Map<Integer, ClassroomData> classrooms) {
         var context = new SchedulingContext(teachers, classrooms, timeConfig.getSlots());
 
-        var coreScheduler = new CoreScheduler(context, combinator);
+        var coreScheduler = new CoreScheduler(context, combinator, coreConfig);
         var electiveScheduler = new ElectiveScheduler(context, combinator);
 
         coreScheduler.generateSchedule(getCriticalDemand(courses, students), true);

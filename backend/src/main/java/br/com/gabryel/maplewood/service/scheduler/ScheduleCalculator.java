@@ -21,6 +21,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.BiPredicate;
 
 import static br.com.gabryel.maplewood.model.db.enums.CourseType.CORE;
@@ -30,7 +31,6 @@ import static java.util.Map.entry;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 
 @Service
 
@@ -96,25 +96,31 @@ public class ScheduleCalculator {
         BiPredicate<StudentData, CourseData> shouldSelect
     ) {
         var coreCourses = getCourses(courses.values(), CORE);
-        var passedCoursesCache = students.values().stream()
-            .collect(toMap(StudentData::id, student -> new HashSet<>(student.passedCourses())));
 
         var courseToStudents = students.values().stream()
-            .flatMap(student -> {
-                var passedCourses = passedCoursesCache.get(student.id());
-                return coreCourses.stream()
-                    .filter(course -> !passedCourses.contains(course.id()))
-                    .filter(course -> course.prerequisite() == null || passedCourses.contains(course.prerequisite().id()))
-                    .filter(course -> course.gradeLevelMax() >= student.gradeLevel())
-                    .filter(course -> course.gradeLevelMin() <= student.gradeLevel())
-                    .filter(course -> shouldSelect.test(student, course))
-                    .map(course -> entry(course, student));
-            })
-            .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
+            .flatMap(student -> getEligibleCourses(student, coreCourses, shouldSelect).stream())
+            .collect(groupingBy(Entry::getKey, mapping(Entry::getValue, toList())));
 
         return courseToStudents.entrySet().stream()
             .map(e -> new CourseDemand(e.getKey(), e.getValue()))
             .sorted(comparing(demand -> demand.students().stream().mapToDouble(StudentData::gradeLevel).average().orElse(0)))
+            .toList();
+    }
+
+    private static List<Entry<CourseData, StudentData>> getEligibleCourses(
+        StudentData student,
+        List<CourseData> coreCourses,
+        BiPredicate<StudentData, CourseData> shouldSelect
+    ) {
+        var passedCourses = new HashSet<>(student.passedCourses());
+
+        return coreCourses.stream()
+            .filter(course -> !passedCourses.contains(course.id()))
+            .filter(course -> course.prerequisite() == null || passedCourses.contains(course.prerequisite().id()))
+            .filter(course -> course.gradeLevelMax() >= student.gradeLevel())
+            .filter(course -> course.gradeLevelMin() <= student.gradeLevel())
+            .filter(course -> shouldSelect.test(student, course))
+            .map(course -> entry(course, student))
             .toList();
     }
 
